@@ -1084,7 +1084,7 @@ function resolveLeadSource(place) {
 
 function processPlace(p, city) {
   const analysis = analyzeWebsiteOpportunity(p, city);
-  return {
+  const lead = {
     name: p.name,
     address: p.formatted_address || city,
     phone: p.formatted_phone_number || '',
@@ -1093,12 +1093,13 @@ function processPlace(p, city) {
     reviews: p.user_ratings_total || 0,
     email: extractEmailFromWebsite(p.website),
     city,
-    source: resolveLeadSource(p),
     _raw: p,
     ...analysis,
     value: analysis.dealValueEstimate,
     notes: formatLeadAnalysisNotes(analysis)
   };
+  lead.source = resolveLeadSource(p);
+  return lead;
 }
 
 function extractEmailFromWebsite(url) {
@@ -1231,7 +1232,7 @@ function renderLeadsTable() {
 
   const tbody = document.getElementById('leads-tbody');
   if(!list.length) {
-    tbody.innerHTML = emptyLeadsRowHtml();
+    renderEmptyLeadsRow(tbody);
     return;
   }
 
@@ -1278,6 +1279,10 @@ function toggleAllLeads(on) {
 function selectAllLeads() {
   document.getElementById('lead-check-all').checked = true;
   toggleAllLeads(true);
+}
+
+function renderEmptyLeadsRow(tbody) {
+  tbody.innerHTML = emptyLeadsRowHtml();
 }
 
 function emptyLeadsRowHtml() {
