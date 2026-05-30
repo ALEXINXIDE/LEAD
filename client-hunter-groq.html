@@ -692,6 +692,9 @@ tr:hover td{background:var(--bg2)}
 // ══════════════════════════════════════════════════════════
 //  STATE
 // ══════════════════════════════════════════════════════════
+const LEAD_SOURCE_OSM = 'OpenStreetMap / Overpass';
+const LEAD_SOURCE_DEMO = 'Demo Mode';
+
 let cfg = {
   claude:'', pitch:'I build modern real estate websites and integrate interactive PlayCanvas 3D property experiences. For agencies without websites, I create the full website, hosting, lead forms, maps, SEO-ready pages, and property showcases. For agencies with websites, I add immersive 3D walkthroughs directly into existing listing pages.',
   ejsPub:'', ejsSvc:'', ejsTpl:'',
@@ -982,7 +985,7 @@ async function runHunt() {
     const results = [];
     for(let i = 0; i < places.length; i++) {
       const p = places[i];
-      const agency = processPlace({...p, source: 'OpenStreetMap / Overpass'}, city);
+      const agency = processPlace({...p, source: LEAD_SOURCE_OSM}, city);
       results.push(agency);
       setProgress(55 + Math.floor((i/places.length)*35), `Processing: ${agency.name}`, results.length);
       logProgress(`✓ ${agency.name} — ${agency.hasWebsite ? 'has website' : 'no website'} — score: ${agency.score}`);
@@ -997,7 +1000,7 @@ async function runHunt() {
     setProgress(0, '⚠️ Overpass fallback: ' + err.message, 0);
     logProgress('OVERPASS FALLBACK: ' + err.message);
     const demos = generateDemoResults(city, keyword, maxR);
-    const processed = demos.map(p => processPlace({...p, source: 'Demo Mode'}, city)).sort((a,b) => b.score - a.score);
+    const processed = demos.map(p => processPlace({...p, source: LEAD_SOURCE_DEMO}, city)).sort((a,b) => b.score - a.score);
     renderResults(processed);
     toast('Showing demo results — Overpass returned no live matches or was unavailable', true);
   }
@@ -1042,7 +1045,7 @@ function overpassElementToPlace(el) {
     osmId: el.id,
     lat: el.lat || el.center?.lat,
     lon: el.lon || el.center?.lon,
-    source: 'OpenStreetMap / Overpass',
+    source: LEAD_SOURCE_OSM,
     _tags: t
   };
 }
@@ -1086,7 +1089,7 @@ function processPlace(p, city) {
     reviews: p.user_ratings_total || 0,
     email: extractEmailFromWebsite(p.website),
     city,
-    source: p.source || p._source || 'OpenStreetMap / Overpass',
+    source: p.source || p._source || LEAD_SOURCE_OSM,
     _raw: p,
     ...analysis,
     value: analysis.dealValueEstimate,
@@ -1224,16 +1227,7 @@ function renderLeadsTable() {
 
   const tbody = document.getElementById('leads-tbody');
   if(!list.length) {
-    tbody.innerHTML = `
-      <tr>
-        <td colspan="10">
-          <div class="empty-state" style="padding:2rem">
-            <div class="icon">🎯</div>
-            <h3>NO LEADS YET</h3>
-            <p>Hunt for agencies in the OpenStreetMap tab</p>
-          </div>
-        </td>
-      </tr>`;
+    tbody.innerHTML = emptyLeadsRowHtml();
     return;
   }
 
@@ -1281,6 +1275,20 @@ function selectAllLeads() {
   document.getElementById('lead-check-all').checked = true;
   toggleAllLeads(true);
 }
+
+function emptyLeadsRowHtml() {
+  return `
+      <tr>
+        <td colspan="10">
+          <div class="empty-state" style="padding:2rem">
+            <div class="icon">🎯</div>
+            <h3>NO LEADS YET</h3>
+            <p>Hunt for agencies in the OpenStreetMap tab</p>
+          </div>
+        </td>
+      </tr>`;
+}
+
 
 function exportCSV() {
   const rows = [['Name','City','Email','Phone','Website','Website Status','Website Quality','Uses Only Photos','Uses Video','Uses Virtual Tours','Uses 3D','Service Path','Opportunity Reasons','Deal Range','Score','Status','Rating','Reviews']];
