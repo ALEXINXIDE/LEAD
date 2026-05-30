@@ -299,7 +299,7 @@ tr:hover td{background:var(--bg2)}
   </div>
   <div class="sidebar-foot">
     <div class="api-status">
-      <div><span class="api-dot ok" id="dot-google"></span>OpenStreetMap</div>
+      <div><span class="api-dot ok" id="dot-osm"></span>OpenStreetMap</div>
       <div><span class="api-dot" id="dot-claude"></span>Groq AI (Free)</div>
       <div><span class="api-dot" id="dot-email"></span>Email (SMTP)</div>
     </div>
@@ -364,7 +364,7 @@ tr:hover td{background:var(--bg2)}
   <div class="setup-card">
     <h3><span class="step">4</span> Status Check</h3>
     <div id="status-checks">
-      <div class="setup-check" id="check-google"><span class="dot"></span>OpenStreetMap Overpass ready (no key)</div>
+      <div class="setup-check" id="check-osm"><span class="dot"></span>OpenStreetMap Overpass ready (no key)</div>
       <div class="setup-check" id="check-claude"><span class="dot"></span>Groq API key</div>
       <div class="setup-check" id="check-email"><span class="dot"></span>Email credentials</div>
       <div class="setup-check" id="check-sender"><span class="dot"></span>Sender info</div>
@@ -693,7 +693,7 @@ tr:hover td{background:var(--bg2)}
 //  STATE
 // ══════════════════════════════════════════════════════════
 let cfg = {
-  google:'', claude:'', pitch:'I build modern real estate websites and integrate interactive PlayCanvas 3D property experiences. For agencies without websites, I create the full website, hosting, lead forms, maps, SEO-ready pages, and property showcases. For agencies with websites, I add immersive 3D walkthroughs directly into existing listing pages.',
+  claude:'', pitch:'I build modern real estate websites and integrate interactive PlayCanvas 3D property experiences. For agencies without websites, I create the full website, hosting, lead forms, maps, SEO-ready pages, and property showcases. For agencies with websites, I add immersive 3D walkthroughs directly into existing listing pages.',
   ejsPub:'', ejsSvc:'', ejsTpl:'',
   senderName:'', senderEmail:'',
   keywords:'real estate agency, property agency, realtors'
@@ -754,8 +754,6 @@ function nav(page, el) {
 //  SETUP
 // ══════════════════════════════════════════════════════════
 function loadSetupFields() {
-  const googleKeyInput = document.getElementById('cfg-google');
-  if(googleKeyInput) googleKeyInput.value = cfg.google;
   document.getElementById('cfg-claude').value = cfg.claude;
   document.getElementById('cfg-pitch').value = cfg.pitch;
   document.getElementById('cfg-ejs-pub').value = cfg.ejsPub;
@@ -768,8 +766,6 @@ function loadSetupFields() {
 }
 
 function saveSetup() {
-  const googleKeyInput = document.getElementById('cfg-google');
-  cfg.google = googleKeyInput ? googleKeyInput.value.trim() : cfg.google;
   cfg.claude = document.getElementById('cfg-claude').value.trim();
   cfg.pitch = document.getElementById('cfg-pitch').value.trim();
   cfg.ejsPub = document.getElementById('cfg-ejs-pub').value.trim();
@@ -786,7 +782,7 @@ function saveSetup() {
 }
 
 function updateStatusChecks() {
-  setCheck('check-google', true);
+  setCheck('check-osm', true);
   setCheck('check-claude', !!cfg.claude);
   setCheck('check-email', !!(cfg.ejsPub && cfg.ejsSvc && cfg.ejsTpl));
   setCheck('check-sender', !!(cfg.senderName && cfg.senderEmail));
@@ -797,13 +793,20 @@ function updateStatusChecks() {
 }
 function setCheck(id, ok) {
   const el = document.getElementById(id);
+  if(!el) return;
   el.className = 'setup-check' + (ok ? ' ok' : '');
-  el.querySelector('.dot').className = 'dot';
-  if(ok) el.querySelector('.dot').classList.add(ok ? 'ok' : '');
+  const statusDot = el.querySelector('.dot');
+  if(statusDot) {
+    statusDot.className = 'dot';
+    if(ok) statusDot.classList.add('ok');
+  }
 }
 function updateApiDots() {
-  const dot = (id, ok) => { const d = document.getElementById(id); d.className = 'api-dot ' + (ok?'ok':'no'); };
-  dot('dot-google', true);
+  const dot = (id, ok) => {
+    const d = document.getElementById(id);
+    if(d) d.className = 'api-dot ' + (ok?'ok':'no');
+  };
+  dot('dot-osm', true);
   dot('dot-claude', !!cfg.claude);
   dot('dot-email', !!(cfg.ejsPub && cfg.ejsSvc));
 }
@@ -925,7 +928,7 @@ function formatLeadAnalysisNotes(lead) {
 }
 
 // ══════════════════════════════════════════════════════════
-//  GOOGLE MAPS HUNT
+//  OPENSTREETMAP OVERPASS HUNT
 // ══════════════════════════════════════════════════════════
 document.addEventListener('DOMContentLoaded', () => {
   document.getElementById('hunt-city').addEventListener('input', updateKwPreview);
