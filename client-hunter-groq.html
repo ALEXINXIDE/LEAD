@@ -1,0 +1,1573 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CLIENT HUNTER PRO — Groq Edition</title>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600;700&family=Bebas+Neue&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#07080a;--bg1:#0d0f12;--bg2:#13161a;--bg3:#1a1d22;--bg4:#22262d;
+  --border:#1e2228;--border2:#252930;--border3:#2e3340;
+  --text:#e8eaf0;--muted:#5a6070;--muted2:#7a8494;
+  --green:#00ff88;--green2:#00cc6a;--green-dim:rgba(0,255,136,.08);
+  --amber:#ffb300;--amber-dim:rgba(255,179,0,.08);
+  --blue:#4da8ff;--blue-dim:rgba(77,168,255,.08);
+  --red:#ff4455;--red-dim:rgba(255,68,85,.08);
+  --mono:'IBM Plex Mono',monospace;--display:'Bebas Neue',sans-serif;--body:'DM Sans',sans-serif;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%}
+body{font-family:var(--body);background:var(--bg);color:var(--text);display:flex;flex-direction:column;min-height:100vh}
+
+/* GRAIN */
+body::after{content:'';position:fixed;inset:0;opacity:.025;background-image:url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)'/%3E%3C/svg%3E");pointer-events:none;z-index:9998}
+
+/* TOP BAR */
+.topbar{display:flex;align-items:center;justify-content:space-between;padding:0 1.5rem;height:52px;border-bottom:1px solid var(--border);background:var(--bg1);flex-shrink:0;position:sticky;top:0;z-index:200}
+.logo{font-family:var(--display);font-size:22px;letter-spacing:.08em;color:var(--green);display:flex;align-items:center;gap:10px}
+.logo-sub{font-family:var(--mono);font-size:9px;color:var(--muted);font-weight:400;letter-spacing:.15em;margin-top:2px}
+.live-dot{width:7px;height:7px;background:var(--green);border-radius:50%;box-shadow:0 0 8px var(--green);animation:livepulse 2s infinite}
+@keyframes livepulse{0%,100%{opacity:1;box-shadow:0 0 8px var(--green)}50%{opacity:.4;box-shadow:0 0 3px var(--green)}}
+.topbar-stats{display:flex;gap:1.5rem;align-items:center}
+.ts{font-family:var(--mono);font-size:11px;color:var(--muted);display:flex;flex-direction:column;align-items:flex-end}
+.ts .v{font-size:14px;font-weight:600;color:var(--text);line-height:1}
+.ts .v.green{color:var(--green)}
+.ts .v.amber{color:var(--amber)}
+.ts-divider{width:1px;height:28px;background:var(--border2)}
+
+/* LAYOUT */
+.shell{display:flex;flex:1;min-height:0}
+.sidebar{width:200px;flex-shrink:0;background:var(--bg1);border-right:1px solid var(--border);display:flex;flex-direction:column;padding:.75rem 0;overflow-y:auto}
+.sgroup{margin-bottom:.25rem}
+.slabel{font-family:var(--mono);font-size:9px;letter-spacing:.18em;color:var(--muted);padding:.5rem 1rem .3rem;text-transform:uppercase}
+.sitem{display:flex;align-items:center;gap:9px;padding:.5rem 1rem;font-size:13px;font-weight:500;color:var(--muted2);cursor:pointer;border-left:2px solid transparent;transition:all .12s;user-select:none}
+.sitem:hover{color:var(--text);background:var(--bg2)}
+.sitem.active{color:var(--green);background:var(--green-dim);border-left-color:var(--green)}
+.sitem .icon{font-size:15px;width:17px;text-align:center;flex-shrink:0}
+.sbadge{margin-left:auto;font-family:var(--mono);font-size:10px;padding:1px 6px;border-radius:2px;background:var(--bg3);color:var(--muted)}
+.sbadge.hot{background:rgba(0,255,136,.12);color:var(--green)}
+.sbadge.warn{background:rgba(255,179,0,.12);color:var(--amber)}
+.sidebar-foot{margin-top:auto;padding:.85rem 1rem;border-top:1px solid var(--border)}
+.api-status{font-family:var(--mono);font-size:10px;line-height:1.8;color:var(--muted)}
+.api-dot{display:inline-block;width:6px;height:6px;border-radius:50%;margin-right:5px;vertical-align:middle}
+.api-dot.ok{background:var(--green)}
+.api-dot.no{background:var(--red)}
+
+/* MAIN */
+.main{flex:1;overflow-y:auto;padding:1.25rem 1.5rem}
+.page{display:none;animation:fadein .2s ease}
+.page.active{display:block}
+@keyframes fadein{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:none}}
+.ph{display:flex;align-items:center;justify-content:space-between;margin-bottom:1.25rem;padding-bottom:.85rem;border-bottom:1px solid var(--border)}
+.ph-left h2{font-family:var(--display);font-size:26px;letter-spacing:.06em;color:var(--text);line-height:1}
+.ph-left p{font-size:12px;color:var(--muted2);margin-top:3px;font-family:var(--mono)}
+
+/* BUTTONS */
+.btn{font-family:var(--mono);font-size:11px;letter-spacing:.04em;padding:.4rem .9rem;border-radius:3px;border:1px solid var(--border3);background:var(--bg3);color:var(--muted2);cursor:pointer;transition:all .12s;display:inline-flex;align-items:center;gap:6px;white-space:nowrap}
+.btn:hover{border-color:var(--muted);color:var(--text)}
+.btn.primary{background:var(--green);color:#000;border-color:var(--green);font-weight:700}
+.btn.primary:hover{background:#00ff99}
+.btn.primary:disabled{opacity:.4;cursor:not-allowed}
+.btn.ghost{background:transparent;border-color:var(--border2)}
+.btn.danger{color:var(--red);border-color:rgba(255,68,85,.25)}
+.btn.danger:hover{background:var(--red-dim)}
+.btn.amber{color:var(--amber);border-color:rgba(255,179,0,.3);background:var(--amber-dim)}
+.btn.blue{color:var(--blue);border-color:rgba(77,168,255,.3);background:var(--blue-dim)}
+.btn.sm{font-size:10px;padding:.28rem .65rem}
+.btn.lg{font-size:12px;padding:.55rem 1.2rem}
+.btn-row{display:flex;gap:7px;flex-wrap:wrap}
+
+/* INPUTS */
+.inp{background:var(--bg2);border:1px solid var(--border2);color:var(--text);font-family:var(--mono);font-size:12px;padding:.45rem .75rem;border-radius:3px;outline:none;transition:border-color .15s;width:100%}
+.inp::placeholder{color:var(--muted)}
+.inp:focus{border-color:var(--green)}
+.inp-label{font-family:var(--mono);font-size:10px;letter-spacing:.08em;color:var(--muted);text-transform:uppercase;display:block;margin-bottom:5px}
+.form-row{margin-bottom:.85rem}
+.form-grid{display:grid;gap:10px}
+.form-grid-2{grid-template-columns:1fr 1fr}
+.form-grid-3{grid-template-columns:1fr 1fr 1fr}
+
+/* SETUP PAGE */
+.setup-card{background:var(--bg1);border:1px solid var(--border);border-radius:5px;padding:1.1rem 1.2rem;margin-bottom:1rem}
+.setup-card h3{font-family:var(--mono);font-size:12px;letter-spacing:.08em;color:var(--muted2);text-transform:uppercase;margin-bottom:.85rem;display:flex;align-items:center;gap:8px}
+.setup-card h3 .step{width:20px;height:20px;background:var(--green);color:#000;border-radius:2px;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;flex-shrink:0}
+.hint{font-size:11px;color:var(--muted);margin-top:5px;font-family:var(--mono);line-height:1.6}
+.hint a{color:var(--blue);text-decoration:none}
+.hint a:hover{text-decoration:underline}
+.setup-check{display:flex;align-items:center;gap:8px;font-family:var(--mono);font-size:11px;padding:.4rem 0;color:var(--muted2)}
+.setup-check .dot{width:8px;height:8px;border-radius:50%;background:var(--border3);flex-shrink:0}
+.setup-check.ok .dot{background:var(--green)}
+.setup-check.ok{color:var(--green)}
+
+/* HUNT PAGE */
+.hunt-box{background:var(--bg1);border:1px solid var(--border);border-radius:5px;padding:1.2rem;margin-bottom:1rem}
+.hunt-inputs{display:grid;grid-template-columns:1fr 1fr auto auto;gap:8px;align-items:end;margin-bottom:.85rem}
+.search-progress{background:var(--bg2);border:1px solid var(--border);border-radius:4px;padding:1rem;margin-bottom:1rem;display:none}
+.progress-bar-track{height:4px;background:var(--bg3);border-radius:2px;margin:.65rem 0;overflow:hidden}
+.progress-bar-fill{height:100%;background:var(--green);border-radius:2px;width:0%;transition:width .4s}
+.progress-log{font-family:var(--mono);font-size:11px;color:var(--muted2);max-height:120px;overflow-y:auto;line-height:2}
+.result-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:10px}
+.result-card{background:var(--bg1);border:1px solid var(--border2);border-radius:5px;padding:1rem;transition:border-color .15s;position:relative}
+.result-card:hover{border-color:var(--border3)}
+.result-card.selected{border-color:var(--green);background:var(--green-dim)}
+.rc-top{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:.5rem}
+.rc-name{font-size:14px;font-weight:600;color:var(--text);line-height:1.3;padding-right:.5rem}
+.rc-score{font-family:var(--mono);font-size:11px;font-weight:700;padding:2px 7px;border-radius:2px}
+.score-hi{background:rgba(0,255,136,.15);color:var(--green)}
+.score-mid{background:rgba(255,179,0,.15);color:var(--amber)}
+.score-lo{background:rgba(255,68,85,.12);color:var(--red)}
+.rc-addr{font-size:11px;color:var(--muted2);margin-bottom:.5rem;line-height:1.4}
+.rc-meta{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:.65rem}
+.rc-tag{font-family:var(--mono);font-size:10px;padding:2px 7px;border-radius:2px;border:1px solid var(--border2);color:var(--muted2)}
+.rc-tag.has-web{border-color:rgba(77,168,255,.3);color:var(--blue);background:var(--blue-dim)}
+.rc-tag.has-phone{border-color:rgba(0,255,136,.3);color:var(--green);background:var(--green-dim)}
+.rc-tag.has-email{border-color:rgba(0,255,136,.5);color:var(--green);background:rgba(0,255,136,.12);font-weight:700}
+.rc-rating{font-family:var(--mono);font-size:11px;color:var(--muted2)}
+.rc-rating .stars{color:var(--amber)}
+.rc-actions{display:flex;gap:5px;margin-top:.65rem}
+.select-cb{position:absolute;top:.75rem;left:.75rem;width:16px;height:16px;border:1px solid var(--border3);border-radius:2px;cursor:pointer;background:var(--bg2);display:flex;align-items:center;justify-content:center;font-size:10px;color:#000;transition:all .12s}
+.result-card.selected .select-cb{background:var(--green);border-color:var(--green)}
+
+/* LEADS PAGE */
+.leads-toolbar{display:flex;gap:8px;margin-bottom:1rem;flex-wrap:wrap;align-items:center}
+.leads-table-wrap{overflow-x:auto;border-radius:5px;border:1px solid var(--border)}
+table{width:100%;border-collapse:collapse}
+th{font-family:var(--mono);font-size:9px;letter-spacing:.12em;color:var(--muted);text-transform:uppercase;padding:.6rem .85rem;text-align:left;border-bottom:1px solid var(--border);background:var(--bg1);white-space:nowrap}
+td{padding:.65rem .85rem;border-bottom:1px solid var(--border);font-size:12px;vertical-align:middle}
+tr:last-child td{border-bottom:none}
+tr:hover td{background:var(--bg2)}
+.lead-name{font-weight:600;color:var(--text);font-size:13px}
+.lead-loc{font-family:var(--mono);font-size:10px;color:var(--muted);margin-top:1px}
+.status-pill{font-family:var(--mono);font-size:10px;padding:2px 8px;border-radius:2px;font-weight:600;border:1px solid;white-space:nowrap}
+.sp-new{background:rgba(90,96,112,.1);color:var(--muted2);border-color:var(--border3)}
+.sp-queued{background:var(--blue-dim);color:var(--blue);border-color:rgba(77,168,255,.3)}
+.sp-sent{background:var(--amber-dim);color:var(--amber);border-color:rgba(255,179,0,.3)}
+.sp-replied{background:var(--green-dim);color:var(--green);border-color:rgba(0,255,136,.35)}
+.sp-closed{background:rgba(0,255,136,.15);color:var(--green);border-color:var(--green)}
+.sp-pass{background:var(--red-dim);color:var(--red);border-color:rgba(255,68,85,.25)}
+.email-cell{font-family:var(--mono);font-size:10px;color:var(--muted2);max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.score-cell{display:flex;align-items:center;gap:6px}
+.score-bar-mini{width:36px;height:3px;background:var(--bg4);border-radius:1px;overflow:hidden}
+.score-bar-fill{height:100%;border-radius:1px}
+.tactions{display:flex;gap:5px;justify-content:flex-end}
+
+/* EMAIL COMPOSER */
+.composer{background:var(--bg1);border:1px solid var(--border);border-radius:5px;padding:1.2rem;margin-bottom:1rem}
+.composer-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:1rem;padding-bottom:.75rem;border-bottom:1px solid var(--border)}
+.composer-header h3{font-family:var(--mono);font-size:11px;letter-spacing:.1em;color:var(--muted2);text-transform:uppercase}
+.email-preview{background:var(--bg2);border:1px solid var(--border2);border-radius:4px;padding:1rem;font-family:var(--mono);font-size:12px;color:var(--text);line-height:1.8;white-space:pre-wrap;min-height:160px;position:relative}
+.email-preview.streaming::after{content:'▋';color:var(--green);animation:blink .6s infinite}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:0}}
+.composer-meta{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:.85rem}
+.meta-field{background:var(--bg2);border:1px solid var(--border2);border-radius:3px;padding:.4rem .7rem;font-family:var(--mono);font-size:11px;color:var(--text)}
+.meta-label{font-family:var(--mono);font-size:9px;color:var(--muted);text-transform:uppercase;letter-spacing:.1em;display:block;margin-bottom:3px}
+
+/* QUEUE PAGE */
+.queue-stats{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:1.2rem}
+.qs{background:var(--bg1);border:1px solid var(--border);border-radius:4px;padding:.85rem 1rem;position:relative;overflow:hidden}
+.qs::before{content:'';position:absolute;top:0;left:0;right:0;height:2px}
+.qs.c1::before{background:var(--green)}
+.qs.c2::before{background:var(--amber)}
+.qs.c3::before{background:var(--blue)}
+.qs.c4::before{background:var(--red)}
+.qs-label{font-family:var(--mono);font-size:9px;letter-spacing:.12em;color:var(--muted);text-transform:uppercase;margin-bottom:.4rem}
+.qs-val{font-family:var(--display);font-size:28px;color:var(--text);line-height:1}
+.qs-sub{font-size:11px;color:var(--muted);margin-top:.25rem}
+.queue-controls{background:var(--bg1);border:1px solid var(--border);border-radius:5px;padding:1.1rem;margin-bottom:1rem;display:flex;align-items:center;gap:1.5rem;flex-wrap:wrap}
+.queue-toggle{display:flex;align-items:center;gap:10px}
+.toggle-switch{width:40px;height:22px;background:var(--bg3);border-radius:11px;border:1px solid var(--border2);cursor:pointer;position:relative;transition:background .2s;flex-shrink:0}
+.toggle-switch.on{background:var(--green);border-color:var(--green)}
+.toggle-knob{width:16px;height:16px;background:#fff;border-radius:50%;position:absolute;top:2px;left:2px;transition:left .2s}
+.toggle-switch.on .toggle-knob{left:20px}
+.toggle-label{font-family:var(--mono);font-size:11px;color:var(--muted2)}
+.queue-limit{display:flex;align-items:center;gap:8px;font-family:var(--mono);font-size:11px;color:var(--muted2)}
+.limit-inp{width:55px;text-align:center}
+.queue-list{background:var(--bg1);border:1px solid var(--border);border-radius:5px;overflow:hidden}
+.queue-item{display:flex;align-items:center;gap:12px;padding:.7rem 1rem;border-bottom:1px solid var(--border);transition:background .12s}
+.queue-item:last-child{border-bottom:none}
+.queue-item:hover{background:var(--bg2)}
+.qi-num{font-family:var(--mono);font-size:11px;color:var(--muted);width:24px;text-align:right;flex-shrink:0}
+.qi-name{font-size:13px;font-weight:600;color:var(--text);flex:1}
+.qi-email{font-family:var(--mono);font-size:10px;color:var(--muted2)}
+.qi-status{font-family:var(--mono);font-size:10px;padding:2px 8px;border-radius:2px;flex-shrink:0}
+.qi-pending{background:var(--blue-dim);color:var(--blue);border:1px solid rgba(77,168,255,.3)}
+.qi-sending{background:var(--amber-dim);color:var(--amber);border:1px solid rgba(255,179,0,.3);animation:glow .8s infinite alternate}
+@keyframes glow{from{box-shadow:0 0 0 rgba(255,179,0,0)}to{box-shadow:0 0 8px rgba(255,179,0,.3)}}
+.qi-done{background:var(--green-dim);color:var(--green);border:1px solid rgba(0,255,136,.3)}
+.qi-failed{background:var(--red-dim);color:var(--red);border:1px solid rgba(255,68,85,.25)}
+.qi-time{font-family:var(--mono);font-size:10px;color:var(--muted);flex-shrink:0}
+.send-btn-main{display:flex;align-items:center;gap:8px;padding:.55rem 1.1rem;background:var(--green);color:#000;border:none;border-radius:3px;font-family:var(--mono);font-size:12px;font-weight:700;cursor:pointer;transition:all .15s;letter-spacing:.04em}
+.send-btn-main:hover{background:#00ff99;transform:translateY(-1px)}
+.send-btn-main:disabled{opacity:.4;cursor:not-allowed;transform:none}
+
+/* ANALYTICS */
+.ana-grid{display:grid;grid-template-columns:1fr 1fr;gap:1rem;margin-bottom:1rem}
+.ana-card{background:var(--bg1);border:1px solid var(--border);border-radius:5px;padding:1.1rem}
+.ana-card h3{font-family:var(--mono);font-size:10px;letter-spacing:.12em;color:var(--muted);text-transform:uppercase;margin-bottom:1rem}
+.funnel-row{display:flex;align-items:center;gap:10px;margin-bottom:8px}
+.funnel-label{font-family:var(--mono);font-size:10px;color:var(--muted2);width:80px;text-align:right;flex-shrink:0}
+.funnel-track{flex:1;height:18px;background:var(--bg3);border-radius:2px;overflow:hidden}
+.funnel-fill{height:100%;border-radius:2px;display:flex;align-items:center;padding-left:6px;font-family:var(--mono);font-size:10px;color:#000;font-weight:700;transition:width .6s}
+.funnel-count{font-family:var(--mono);font-size:11px;font-weight:700;width:24px;text-align:right}
+.goal-section{background:var(--bg1);border:1px solid var(--border);border-radius:5px;padding:1.1rem;margin-bottom:1rem}
+.goal-bar-wrap{margin-top:.75rem}
+.goal-labels{display:flex;justify-content:space-between;font-family:var(--mono);font-size:10px;color:var(--muted);margin-bottom:6px}
+.goal-track-big{height:10px;background:var(--bg3);border-radius:5px;overflow:hidden}
+.goal-fill-big{height:100%;background:linear-gradient(90deg,var(--green2),var(--green));border-radius:5px;transition:width .7s}
+.source-row{display:flex;align-items:center;justify-content:space-between;padding:.5rem 0;border-bottom:1px solid var(--border);font-size:12px}
+.source-row:last-child{border-bottom:none}
+.source-name{color:var(--text)}
+.source-count{font-family:var(--mono);font-size:11px;color:var(--muted2)}
+
+/* MODAL */
+.modal-bg{display:none;position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:300;align-items:center;justify-content:center;backdrop-filter:blur(3px)}
+.modal-bg.open{display:flex}
+.modal{background:var(--bg1);border:1px solid var(--border2);border-radius:6px;width:95%;max-width:560px;max-height:90vh;overflow-y:auto}
+.modal-head{display:flex;align-items:center;justify-content:space-between;padding:1rem 1.2rem;border-bottom:1px solid var(--border);position:sticky;top:0;background:var(--bg1)}
+.modal-head h3{font-family:var(--mono);font-size:12px;letter-spacing:.08em;color:var(--text);text-transform:uppercase}
+.modal-close{background:none;border:none;color:var(--muted);cursor:pointer;font-size:18px;line-height:1;padding:.2rem}
+.modal-close:hover{color:var(--text)}
+.modal-body{padding:1.2rem}
+.modal-foot{padding:.85rem 1.2rem;border-top:1px solid var(--border);display:flex;justify-content:flex-end;gap:8px}
+
+/* TOAST */
+.toast{position:fixed;bottom:1.2rem;right:1.2rem;background:var(--bg2);border:1px solid var(--green);color:var(--green);font-family:var(--mono);font-size:11px;padding:.6rem 1rem;border-radius:4px;z-index:500;display:none;animation:toastin .25s ease}
+.toast.error{border-color:var(--red);color:var(--red)}
+@keyframes toastin{from{transform:translateY(8px);opacity:0}to{transform:none;opacity:1}}
+.empty-state{text-align:center;padding:3rem 1rem;color:var(--muted)}
+.empty-state .icon{font-size:32px;margin-bottom:.75rem}
+.empty-state h3{font-family:var(--mono);font-size:13px;color:var(--muted2);margin-bottom:.4rem}
+.empty-state p{font-size:12px;line-height:1.6}
+
+/* SCROLLBAR */
+::-webkit-scrollbar{width:4px;height:4px}
+::-webkit-scrollbar-track{background:transparent}
+::-webkit-scrollbar-thumb{background:var(--border2);border-radius:2px}
+
+/* RESPONSIVE */
+@media(max-width:768px){
+  .sidebar{display:none}
+  .hunt-inputs{grid-template-columns:1fr 1fr}
+  .queue-stats{grid-template-columns:repeat(2,1fr)}
+  .ana-grid{grid-template-columns:1fr}
+}
+</style>
+</head>
+<body>
+
+<!-- TOP BAR -->
+<header class="topbar">
+  <div style="display:flex;align-items:center;gap:12px">
+    <div class="live-dot"></div>
+    <div>
+      <div class="logo">CLIENT HUNTER PRO</div>
+      <div class="logo-sub">REAL ESTATE · PLAYCANVAS 3D TOURS</div>
+    </div>
+  </div>
+  <div class="topbar-stats">
+    <div class="ts"><span class="v green" id="top-leads">0</span><span>leads</span></div>
+    <div class="ts-divider"></div>
+    <div class="ts"><span class="v amber" id="top-sent">0</span><span>emails sent</span></div>
+    <div class="ts-divider"></div>
+    <div class="ts"><span class="v green" id="top-replies">0</span><span>replies</span></div>
+    <div class="ts-divider"></div>
+    <div class="ts"><span class="v green" id="top-rev">$0</span><span>earned</span></div>
+  </div>
+</header>
+
+<div class="shell">
+<!-- SIDEBAR -->
+<nav class="sidebar">
+  <div class="sgroup">
+    <div class="slabel">System</div>
+    <div class="sitem active" onclick="nav('setup',this)"><span class="icon">⚙️</span>Setup<span class="sbadge warn" id="sb-setup">!</span></div>
+  </div>
+  <div class="sgroup">
+    <div class="slabel">Hunt</div>
+    <div class="sitem" onclick="nav('hunt',this)"><span class="icon">🗺️</span>Google Maps Hunt</div>
+    <div class="sitem" onclick="nav('leads',this)"><span class="icon">🎯</span>All Leads<span class="sbadge" id="sb-leads">0</span></div>
+  </div>
+  <div class="sgroup">
+    <div class="slabel">Outreach</div>
+    <div class="sitem" onclick="nav('compose',this)"><span class="icon">✍️</span>Email Composer</div>
+    <div class="sitem" onclick="nav('queue',this)"><span class="icon">📤</span>Send Queue<span class="sbadge hot" id="sb-queue">0</span></div>
+  </div>
+  <div class="sgroup">
+    <div class="slabel">Results</div>
+    <div class="sitem" onclick="nav('analytics',this)"><span class="icon">📊</span>Analytics</div>
+  </div>
+  <div class="sidebar-foot">
+    <div class="api-status">
+      <div><span class="api-dot" id="dot-google"></span>Google Places</div>
+      <div><span class="api-dot" id="dot-claude"></span>Groq AI (Free)</div>
+      <div><span class="api-dot" id="dot-email"></span>Email (SMTP)</div>
+    </div>
+  </div>
+</nav>
+
+<!-- MAIN -->
+<main class="main">
+
+<!-- ─── SETUP ────────────────────────────────────── -->
+<div class="page active" id="page-setup">
+  <div class="ph">
+    <div class="ph-left"><h2>SYSTEM SETUP</h2><p>Connect your APIs to begin hunting</p></div>
+    <button class="btn primary lg" onclick="saveSetup()">💾 SAVE ALL</button>
+  </div>
+
+  <div class="setup-card">
+    <h3><span class="step">1</span> Google Places API</h3>
+    <div class="form-row">
+      <label class="inp-label">API Key</label>
+      <input class="inp" id="cfg-google" type="password" placeholder="AIzaSy...">
+      <div class="hint">Get free key → <a href="https://console.cloud.google.com/apis/library/places-backend.googleapis.com" target="_blank">Google Cloud Console</a> → Enable "Places API (New)" · Free tier: 200 req/month</div>
+    </div>
+    <div class="form-row" style="margin-bottom:0">
+      <label class="inp-label">Search Keywords (comma separated)</label>
+      <input class="inp" id="cfg-keywords" value="real estate agency, property agency, realtors, estate agents, property dealers">
+    </div>
+  </div>
+
+  <div class="setup-card">
+    <h3><span class="step">2</span> Groq AI (for email writing — FREE)</h3>
+    <div class="form-row">
+      <label class="inp-label">Groq API Key</label>
+      <input class="inp" id="cfg-claude" type="password" placeholder="gsk_...">
+      <div class="hint">Get free key → <a href="https://console.groq.com/keys" target="_blank">console.groq.com/keys</a> · 100% free · No credit card needed · Fast Llama 3.3 70B model</div>
+    </div>
+    <div class="form-row" style="margin-bottom:0">
+      <label class="inp-label">Your Service Pitch (used to personalize emails)</label>
+      <textarea class="inp" id="cfg-pitch" rows="3" style="resize:none">I convert real estate property photos into interactive 3D walkthroughs using PlayCanvas. Buyers can explore listings from any angle on any device with no app needed. Delivered in 48 hours.</textarea>
+    </div>
+  </div>
+
+  <div class="setup-card">
+    <h3><span class="step">3</span> Email Sending (Gmail SMTP via EmailJS)</h3>
+    <div class="hint" style="margin-bottom:.85rem;background:var(--blue-dim);border:1px solid rgba(77,168,255,.2);padding:.65rem .85rem;border-radius:3px;color:var(--blue)">
+      📌 EmailJS lets you send from your Gmail with no backend. Free = 200 emails/month.<br>
+      Setup: <a href="https://www.emailjs.com" target="_blank">emailjs.com</a> → Create account → Add Gmail service → Copy keys below.
+    </div>
+    <div class="form-grid form-grid-3" style="margin-bottom:.85rem">
+      <div class="form-row" style="margin:0"><label class="inp-label">EmailJS Public Key</label><input class="inp" id="cfg-ejs-pub" placeholder="user_xxxxxxxx"></div>
+      <div class="form-row" style="margin:0"><label class="inp-label">Service ID</label><input class="inp" id="cfg-ejs-svc" placeholder="service_xxxxxxx"></div>
+      <div class="form-row" style="margin:0"><label class="inp-label">Template ID</label><input class="inp" id="cfg-ejs-tpl" placeholder="template_xxxxxxx"></div>
+    </div>
+    <div class="form-grid form-grid-2">
+      <div class="form-row" style="margin:0"><label class="inp-label">Your Name</label><input class="inp" id="cfg-sender-name" placeholder="Your Name"></div>
+      <div class="form-row" style="margin:0"><label class="inp-label">Your Email (Gmail)</label><input class="inp" id="cfg-sender-email" placeholder="you@gmail.com"></div>
+    </div>
+    <div class="hint" style="margin-top:.65rem">
+      ⚡ EmailJS template must have these variables: <code style="font-family:var(--mono);background:var(--bg3);padding:1px 5px;border-radius:2px">{{to_email}}</code> <code style="font-family:var(--mono);background:var(--bg3);padding:1px 5px;border-radius:2px">{{to_name}}</code> <code style="font-family:var(--mono);background:var(--bg3);padding:1px 5px;border-radius:2px">{{subject}}</code> <code style="font-family:var(--mono);background:var(--bg3);padding:1px 5px;border-radius:2px">{{message}}</code> <code style="font-family:var(--mono);background:var(--bg3);padding:1px 5px;border-radius:2px">{{from_name}}</code>
+    </div>
+  </div>
+
+  <div class="setup-card">
+    <h3><span class="step">4</span> Status Check</h3>
+    <div id="status-checks">
+      <div class="setup-check" id="check-google"><span class="dot"></span>Google Places API key</div>
+      <div class="setup-check" id="check-claude"><span class="dot"></span>Groq API key</div>
+      <div class="setup-check" id="check-email"><span class="dot"></span>Email credentials</div>
+      <div class="setup-check" id="check-sender"><span class="dot"></span>Sender info</div>
+    </div>
+  </div>
+</div>
+
+<!-- ─── HUNT ─────────────────────────────────────── -->
+<div class="page" id="page-hunt">
+  <div class="ph">
+    <div class="ph-left"><h2>GOOGLE MAPS HUNT</h2><p>Search any city, scrape real estate agencies automatically</p></div>
+    <div class="btn-row">
+      <button class="btn" onclick="selectAll()">SELECT ALL</button>
+      <button class="btn primary" id="add-selected-btn" onclick="addSelectedToLeads()" disabled>ADD SELECTED TO LEADS</button>
+    </div>
+  </div>
+  <div class="hunt-box">
+    <div class="hunt-inputs">
+      <div>
+        <label class="inp-label">City / Area</label>
+        <input class="inp" id="hunt-city" placeholder="Islamabad, Lahore, Karachi...">
+      </div>
+      <div>
+        <label class="inp-label">Keyword</label>
+        <select class="inp" id="hunt-keyword">
+          <option>real estate agency</option>
+          <option>property dealers</option>
+          <option>estate agents</option>
+          <option>property management</option>
+          <option>luxury real estate</option>
+          <option>commercial real estate</option>
+          <option>real estate developers</option>
+        </select>
+      </div>
+      <div>
+        <label class="inp-label">Max Results</label>
+        <select class="inp" id="hunt-max">
+          <option value="10">10</option><option value="20" selected>20</option><option value="40">40</option>
+        </select>
+      </div>
+      <div style="display:flex;align-items:flex-end">
+        <button class="btn primary lg" id="hunt-btn" onclick="runHunt()">🔍 HUNT</button>
+      </div>
+    </div>
+    <div style="font-family:var(--mono);font-size:10px;color:var(--muted)">
+      Will search: <span id="kw-preview" style="color:var(--muted2)">real estate agency in [city]</span>
+    </div>
+  </div>
+
+  <div class="search-progress" id="hunt-progress">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:.5rem">
+      <span style="font-family:var(--mono);font-size:11px;color:var(--muted2)" id="prog-status">Searching...</span>
+      <span style="font-family:var(--mono);font-size:11px;color:var(--green)" id="prog-found">0 found</span>
+    </div>
+    <div class="progress-bar-track"><div class="progress-bar-fill" id="prog-bar"></div></div>
+    <div class="progress-log" id="prog-log"></div>
+  </div>
+
+  <div id="results-area">
+    <div class="empty-state">
+      <div class="icon">🗺️</div>
+      <h3>NO SEARCH RUN YET</h3>
+      <p>Enter a city and hit HUNT to find real estate agencies via Google Maps</p>
+    </div>
+  </div>
+</div>
+
+<!-- ─── LEADS ─────────────────────────────────────── -->
+<div class="page" id="page-leads">
+  <div class="ph">
+    <div class="ph-left"><h2>ALL LEADS</h2><p id="leads-count-label">0 agencies tracked</p></div>
+    <div class="btn-row">
+      <button class="btn" onclick="exportCSV()">📥 EXPORT CSV</button>
+      <button class="btn primary" onclick="queueSelected()">📤 QUEUE SELECTED</button>
+    </div>
+  </div>
+  <div class="leads-toolbar">
+    <input class="inp" style="flex:1;min-width:180px" id="lead-search" placeholder="SEARCH LEADS..." oninput="renderLeadsTable()">
+    <select class="inp" style="width:auto" id="lead-filter" onchange="renderLeadsTable()">
+      <option value="">ALL STATUS</option>
+      <option value="new">NEW</option>
+      <option value="queued">QUEUED</option>
+      <option value="sent">SENT</option>
+      <option value="replied">REPLIED</option>
+      <option value="closed">CLOSED</option>
+      <option value="pass">PASS</option>
+    </select>
+    <select class="inp" style="width:auto" id="lead-sort" onchange="renderLeadsTable()">
+      <option value="score">SCORE ↓</option>
+      <option value="name">NAME A-Z</option>
+      <option value="date">DATE ADDED</option>
+    </select>
+    <button class="btn sm" onclick="selectAllLeads()">SELECT ALL</button>
+  </div>
+  <div class="leads-table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th><input type="checkbox" id="lead-check-all" onchange="toggleAllLeads(this.checked)" style="cursor:pointer"></th>
+          <th>AGENCY</th><th>SCORE</th><th>EMAIL</th><th>PHONE</th><th>STATUS</th><th>SOURCE</th><th style="text-align:right">ACTIONS</th>
+        </tr>
+      </thead>
+      <tbody id="leads-tbody"></tbody>
+    </table>
+  </div>
+</div>
+
+<!-- ─── EMAIL COMPOSER ───────────────────────────── -->
+<div class="page" id="page-compose">
+  <div class="ph">
+    <div class="ph-left"><h2>EMAIL COMPOSER</h2><p>AI writes a personalized email per agency</p></div>
+    <div class="btn-row">
+      <button class="btn blue" onclick="generateEmailForAll()">⚡ GENERATE FOR ALL NEW LEADS</button>
+    </div>
+  </div>
+
+  <div class="composer">
+    <div class="composer-header">
+      <h3>🤖 AI EMAIL GENERATOR</h3>
+      <div class="btn-row">
+        <select class="inp" style="width:auto;font-size:11px" id="email-type">
+          <option value="cold">Cold Email</option>
+          <option value="followup">Follow-up</option>
+          <option value="demo">Demo Invite</option>
+        </select>
+        <button class="btn blue" onclick="generateEmail()">⚡ GENERATE</button>
+        <button class="btn" onclick="regenerateEmail()">↺ REGENERATE</button>
+      </div>
+    </div>
+    <div class="form-grid form-grid-2" style="margin-bottom:.85rem">
+      <div>
+        <span class="meta-label">Select Lead</span>
+        <select class="inp" id="compose-lead" onchange="loadLeadForCompose()">
+          <option value="">— choose an agency —</option>
+        </select>
+      </div>
+      <div>
+        <span class="meta-label">To Email</span>
+        <input class="inp" id="compose-to" placeholder="agency@email.com">
+      </div>
+    </div>
+    <div class="composer-meta">
+      <div>
+        <span class="meta-label">Subject</span>
+        <div class="meta-field" id="compose-subject">Generate an email to see subject line</div>
+      </div>
+      <div>
+        <span class="meta-label">From</span>
+        <div class="meta-field" id="compose-from">—</div>
+      </div>
+    </div>
+    <div class="email-preview" id="compose-body">Select a lead and click GENERATE to write a personalized cold email...</div>
+    <div style="display:flex;gap:7px;margin-top:.75rem;align-items:center">
+      <button class="send-btn-main" id="send-one-btn" onclick="sendThisEmail()" disabled>📤 SEND THIS EMAIL</button>
+      <button class="btn" onclick="copyEmail()">📋 COPY</button>
+      <button class="btn" onclick="addToQueue()">+ ADD TO QUEUE</button>
+      <span style="font-family:var(--mono);font-size:10px;color:var(--muted);margin-left:auto" id="compose-status"></span>
+    </div>
+  </div>
+
+  <div style="background:var(--bg1);border:1px solid var(--border);border-radius:5px;padding:1.1rem">
+    <div style="font-family:var(--mono);font-size:10px;letter-spacing:.12em;color:var(--muted);text-transform:uppercase;margin-bottom:.85rem">📋 EMAIL TEMPLATES (EDIT & USE)</div>
+    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px" id="template-cards"></div>
+  </div>
+</div>
+
+<!-- ─── QUEUE ─────────────────────────────────────── -->
+<div class="page" id="page-queue">
+  <div class="ph">
+    <div class="ph-left"><h2>SEND QUEUE</h2><p>Emails ready to go — review before sending</p></div>
+    <div class="btn-row">
+      <button class="btn danger" onclick="clearSent()">CLEAR SENT</button>
+      <button class="send-btn-main" id="send-all-btn" onclick="sendQueue()">📤 SEND NEXT BATCH</button>
+    </div>
+  </div>
+  <div class="queue-stats">
+    <div class="qs c1"><div class="qs-label">In Queue</div><div class="qs-val" id="qs-pending">0</div><div class="qs-sub">ready to send</div></div>
+    <div class="qs c2"><div class="qs-label">Sent Today</div><div class="qs-val" id="qs-today">0</div><div class="qs-sub">of <span id="qs-limit">20</span> limit</div></div>
+    <div class="qs c3"><div class="qs-label">Total Sent</div><div class="qs-val" id="qs-sent">0</div><div class="qs-sub">all time</div></div>
+    <div class="qs c4"><div class="qs-label">Failed</div><div class="qs-val" id="qs-failed">0</div><div class="qs-sub">check config</div></div>
+  </div>
+  <div class="queue-controls">
+    <div class="queue-toggle">
+      <div class="toggle-switch" id="auto-toggle" onclick="toggleAuto()"><div class="toggle-knob"></div></div>
+      <div class="toggle-label">
+        <div style="color:var(--text);font-weight:600" id="auto-label">AUTO-SEND: OFF</div>
+        <div style="font-size:9px;color:var(--muted)">Sends automatically on schedule</div>
+      </div>
+    </div>
+    <div class="queue-limit">
+      DAILY LIMIT: <input class="inp limit-inp" id="daily-limit" type="number" value="20" min="1" max="100">
+      emails/day
+    </div>
+    <div class="queue-limit">
+      DELAY BETWEEN SENDS: <input class="inp limit-inp" id="send-delay" type="number" value="90" min="30" max="600">
+      seconds
+    </div>
+  </div>
+  <div class="queue-list" id="queue-list">
+    <div class="empty-state" style="padding:2rem">
+      <div class="icon">📭</div>
+      <h3>QUEUE IS EMPTY</h3>
+      <p>Generate emails in the Composer tab and add them to the queue</p>
+    </div>
+  </div>
+</div>
+
+<!-- ─── ANALYTICS ─────────────────────────────────── -->
+<div class="page" id="page-analytics">
+  <div class="ph">
+    <div class="ph-left"><h2>ANALYTICS</h2><p>Your outreach performance at a glance</p></div>
+    <button class="btn" onclick="renderAnalytics()">↺ REFRESH</button>
+  </div>
+  <div class="goal-section">
+    <div style="display:flex;justify-content:space-between;align-items:center">
+      <div style="font-family:var(--mono);font-size:10px;letter-spacing:.1em;color:var(--muted);text-transform:uppercase">Weekly Revenue Goal</div>
+      <div style="display:flex;gap:8px;align-items:center">
+        <input class="inp" id="goal-input" type="number" value="1000" style="width:80px;text-align:center" onchange="renderAnalytics()">
+        <span style="font-family:var(--mono);font-size:11px;color:var(--muted)">USD</span>
+      </div>
+    </div>
+    <div class="goal-bar-wrap">
+      <div class="goal-labels">
+        <span id="goal-earned-label">$0 earned</span>
+        <span id="goal-pct-label">0%</span>
+      </div>
+      <div class="goal-track-big"><div class="goal-fill-big" id="goal-bar-fill" style="width:0%"></div></div>
+    </div>
+    <div style="display:flex;gap:1.5rem;margin-top:.85rem;flex-wrap:wrap">
+      <div style="font-family:var(--mono);font-size:11px;color:var(--muted)">Need: <span style="color:var(--amber)" id="goal-need">$1000 more</span></div>
+      <div style="font-family:var(--mono);font-size:11px;color:var(--muted)">At $499/client you need <span style="color:var(--green)" id="goal-clients">3 more clients</span></div>
+    </div>
+  </div>
+  <div class="ana-grid">
+    <div class="ana-card">
+      <h3>OUTREACH FUNNEL</h3>
+      <div id="funnel-chart"></div>
+    </div>
+    <div class="ana-card">
+      <h3>LEADS BY SOURCE</h3>
+      <div id="source-chart"></div>
+    </div>
+  </div>
+  <div class="ana-grid">
+    <div class="ana-card">
+      <h3>CONVERSION RATES</h3>
+      <div id="conv-stats" style="font-family:var(--mono);font-size:12px;line-height:2.2;color:var(--muted2)"></div>
+    </div>
+    <div class="ana-card">
+      <h3>7-DAY ACTIVITY</h3>
+      <div id="activity-chart" style="display:flex;align-items:flex-end;gap:4px;height:80px;margin-top:.5rem"></div>
+    </div>
+  </div>
+</div>
+
+</main>
+</div><!-- /shell -->
+
+<!-- MODAL: lead detail / edit -->
+<div class="modal-bg" id="lead-modal" onclick="if(event.target===this)closeLeadModal()">
+  <div class="modal">
+    <div class="modal-head">
+      <h3 id="lead-modal-title">EDIT LEAD</h3>
+      <button class="modal-close" onclick="closeLeadModal()">✕</button>
+    </div>
+    <div class="modal-body">
+      <input type="hidden" id="lm-id">
+      <div class="form-grid form-grid-2">
+        <div class="form-row"><label class="inp-label">Agency Name</label><input class="inp" id="lm-name"></div>
+        <div class="form-row"><label class="inp-label">Contact Person</label><input class="inp" id="lm-contact"></div>
+      </div>
+      <div class="form-grid form-grid-2">
+        <div class="form-row"><label class="inp-label">Email</label><input class="inp" id="lm-email" type="email"></div>
+        <div class="form-row"><label class="inp-label">Phone</label><input class="inp" id="lm-phone"></div>
+      </div>
+      <div class="form-grid form-grid-2">
+        <div class="form-row"><label class="inp-label">City</label><input class="inp" id="lm-city"></div>
+        <div class="form-row"><label class="inp-label">Status</label>
+          <select class="inp" id="lm-status">
+            <option value="new">New</option><option value="queued">Queued</option>
+            <option value="sent">Sent</option><option value="replied">Replied</option>
+            <option value="closed">Closed ($)</option><option value="pass">Pass</option>
+          </select>
+        </div>
+      </div>
+      <div class="form-grid form-grid-2">
+        <div class="form-row"><label class="inp-label">Website</label><input class="inp" id="lm-website"></div>
+        <div class="form-row"><label class="inp-label">Deal Value ($)</label><input class="inp" id="lm-value" type="number"></div>
+      </div>
+      <div class="form-row"><label class="inp-label">Notes</label><textarea class="inp" id="lm-notes" rows="3" style="resize:none"></textarea></div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn danger" onclick="deleteLead(document.getElementById('lm-id').value)">DELETE</button>
+      <button class="btn" onclick="closeLeadModal()">CANCEL</button>
+      <button class="btn primary" onclick="saveLeadModal()">SAVE</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@4/dist/email.min.js"></script>
+<script>
+// ══════════════════════════════════════════════════════════
+//  STATE
+// ══════════════════════════════════════════════════════════
+let cfg = {
+  google:'', claude:'', pitch:'',
+  ejsPub:'', ejsSvc:'', ejsTpl:'',
+  senderName:'', senderEmail:'',
+  keywords:'real estate agency, property agency, realtors'
+};
+let leads = [];
+let emailQueue = [];
+let sendLog = [];
+let nextId = 1;
+let autoSendOn = false;
+let autoTimer = null;
+let selectedResults = new Set();
+let selectedLeadIds = new Set();
+let currentComposeLead = null;
+let currentEmailDraft = {subject:'', body:''};
+
+// ══════════════════════════════════════════════════════════
+//  PERSISTENCE
+// ══════════════════════════════════════════════════════════
+function save() {
+  try {
+    localStorage.setItem('chp_cfg', JSON.stringify(cfg));
+    localStorage.setItem('chp_leads', JSON.stringify(leads));
+    localStorage.setItem('chp_queue', JSON.stringify(emailQueue));
+    localStorage.setItem('chp_log', JSON.stringify(sendLog.slice(0,200)));
+    localStorage.setItem('chp_nid', nextId);
+  } catch(e) {}
+}
+function load() {
+  try {
+    const c = localStorage.getItem('chp_cfg');
+    const l = localStorage.getItem('chp_leads');
+    const q = localStorage.getItem('chp_queue');
+    const sl = localStorage.getItem('chp_log');
+    if(c) cfg = {...cfg, ...JSON.parse(c)};
+    if(l) leads = JSON.parse(l);
+    if(q) emailQueue = JSON.parse(q);
+    if(sl) sendLog = JSON.parse(sl);
+    nextId = parseInt(localStorage.getItem('chp_nid')) || 1;
+  } catch(e) {}
+}
+
+// ══════════════════════════════════════════════════════════
+//  NAVIGATION
+// ══════════════════════════════════════════════════════════
+function nav(page, el) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.sitem').forEach(s => s.classList.remove('active'));
+  document.getElementById('page-' + page).classList.add('active');
+  if(el) el.classList.add('active');
+  if(page === 'leads') { renderLeadsTable(); populateComposeSelect(); }
+  if(page === 'queue') renderQueue();
+  if(page === 'analytics') renderAnalytics();
+  if(page === 'setup') loadSetupFields();
+  if(page === 'compose') populateComposeSelect();
+}
+
+// ══════════════════════════════════════════════════════════
+//  SETUP
+// ══════════════════════════════════════════════════════════
+function loadSetupFields() {
+  document.getElementById('cfg-google').value = cfg.google;
+  document.getElementById('cfg-claude').value = cfg.claude;
+  document.getElementById('cfg-pitch').value = cfg.pitch;
+  document.getElementById('cfg-ejs-pub').value = cfg.ejsPub;
+  document.getElementById('cfg-ejs-svc').value = cfg.ejsSvc;
+  document.getElementById('cfg-ejs-tpl').value = cfg.ejsTpl;
+  document.getElementById('cfg-sender-name').value = cfg.senderName;
+  document.getElementById('cfg-sender-email').value = cfg.senderEmail;
+  document.getElementById('cfg-keywords').value = cfg.keywords;
+  updateStatusChecks();
+}
+
+function saveSetup() {
+  cfg.google = document.getElementById('cfg-google').value.trim();
+  cfg.claude = document.getElementById('cfg-claude').value.trim();
+  cfg.pitch = document.getElementById('cfg-pitch').value.trim();
+  cfg.ejsPub = document.getElementById('cfg-ejs-pub').value.trim();
+  cfg.ejsSvc = document.getElementById('cfg-ejs-svc').value.trim();
+  cfg.ejsTpl = document.getElementById('cfg-ejs-tpl').value.trim();
+  cfg.senderName = document.getElementById('cfg-sender-name').value.trim();
+  cfg.senderEmail = document.getElementById('cfg-sender-email').value.trim();
+  cfg.keywords = document.getElementById('cfg-keywords').value.trim();
+  save();
+  if(cfg.ejsPub) emailjs.init(cfg.ejsPub);
+  updateStatusChecks();
+  updateApiDots();
+  toast('Settings saved!');
+}
+
+function updateStatusChecks() {
+  setCheck('check-google', !!cfg.google);
+  setCheck('check-claude', !!cfg.claude);
+  setCheck('check-email', !!(cfg.ejsPub && cfg.ejsSvc && cfg.ejsTpl));
+  setCheck('check-sender', !!(cfg.senderName && cfg.senderEmail));
+  const allGood = cfg.google && cfg.claude && cfg.ejsPub && cfg.ejsSvc && cfg.senderEmail;
+  const sb = document.getElementById('sb-setup');
+  if(allGood) { sb.textContent = '✓'; sb.className = 'sbadge hot'; }
+  else { sb.textContent = '!'; sb.className = 'sbadge warn'; }
+}
+function setCheck(id, ok) {
+  const el = document.getElementById(id);
+  el.className = 'setup-check' + (ok ? ' ok' : '');
+  el.querySelector('.dot').className = 'dot';
+  if(ok) el.querySelector('.dot').classList.add(ok ? 'ok' : '');
+}
+function updateApiDots() {
+  const dot = (id, ok) => { const d = document.getElementById(id); d.className = 'api-dot ' + (ok?'ok':'no'); };
+  dot('dot-google', !!cfg.google);
+  dot('dot-claude', !!cfg.claude);
+  dot('dot-email', !!(cfg.ejsPub && cfg.ejsSvc));
+}
+
+// ══════════════════════════════════════════════════════════
+//  GOOGLE MAPS HUNT
+// ══════════════════════════════════════════════════════════
+document.addEventListener('DOMContentLoaded', () => {
+  document.getElementById('hunt-city').addEventListener('input', updateKwPreview);
+  document.getElementById('hunt-keyword').addEventListener('change', updateKwPreview);
+});
+function updateKwPreview() {
+  const city = document.getElementById('hunt-city')?.value || '[city]';
+  const kw = document.getElementById('hunt-keyword')?.value || '[keyword]';
+  const el = document.getElementById('kw-preview');
+  if(el) el.textContent = `"${kw} in ${city || '[city]'}"`;
+}
+
+async function runHunt() {
+  const city = document.getElementById('hunt-city').value.trim();
+  const keyword = document.getElementById('hunt-keyword').value;
+  const maxR = parseInt(document.getElementById('hunt-max').value) || 20;
+
+  if(!city) { toast('Enter a city first!', true); return; }
+  if(!cfg.google) {
+    toast('Add your Google Places API key in Setup!', true);
+    nav('setup', document.querySelector('.sitem'));
+    return;
+  }
+
+  const btn = document.getElementById('hunt-btn');
+  btn.disabled = true; btn.textContent = '⏳ HUNTING...';
+  selectedResults.clear();
+  document.getElementById('add-selected-btn').disabled = true;
+
+  const prog = document.getElementById('hunt-progress');
+  prog.style.display = 'block';
+  document.getElementById('results-area').innerHTML = '';
+  setProgress(0, `Searching for "${keyword}" in ${city}...`, 0);
+
+  try {
+    const query = `${keyword} in ${city}`;
+    const url = `https://maps.googleapis.com/maps/api/place/textsearch/json?query=${encodeURIComponent(query)}&type=real_estate_agency&key=${cfg.google}`;
+    
+    // Use a CORS proxy since we're in a browser
+    const proxyUrl = `https://api.allorigins.win/get?url=${encodeURIComponent(url)}`;
+    setProgress(20, 'Fetching results from Google Places...', 0);
+
+    const resp = await fetch(proxyUrl);
+    const outer = await resp.json();
+    
+    let places = [];
+    if(outer.contents) {
+      const data = JSON.parse(outer.contents);
+      if(data.status === 'REQUEST_DENIED') throw new Error('API key invalid or Places API not enabled');
+      if(data.status === 'ZERO_RESULTS') throw new Error('No results found. Try a different city or keyword.');
+      places = data.results || [];
+    }
+
+    // Simulate if no real results (demo mode when no API key works)
+    if(places.length === 0) {
+      places = generateDemoResults(city, keyword, maxR);
+      logProgress(`⚠️ Demo mode — showing sample data (connect real Google Places API key for live results)`);
+    }
+
+    setProgress(50, `Found ${places.length} agencies, scoring...`, places.length);
+    const results = [];
+    for(let i = 0; i < Math.min(places.length, maxR); i++) {
+      const p = places[i];
+      const agency = processPlace(p, city);
+      results.push(agency);
+      setProgress(50 + Math.floor((i/places.length)*40), `Processing: ${agency.name}`, results.length);
+      logProgress(`✓ ${agency.name} — score: ${agency.score}`);
+      await sleep(30);
+    }
+
+    results.sort((a,b) => b.score - a.score);
+    setProgress(100, `Done! ${results.length} agencies found.`, results.length);
+    renderResults(results);
+    toast(`Found ${results.length} agencies in ${city}!`);
+  } catch(err) {
+    setProgress(0, '❌ Error: ' + err.message, 0);
+    logProgress('ERROR: ' + err.message);
+    // Show demo results anyway
+    const demos = generateDemoResults(city, keyword, maxR);
+    const processed = demos.map(p => processPlace(p, city)).sort((a,b) => b.score - a.score);
+    renderResults(processed);
+    toast('Showing demo results — check API key in Setup', true);
+  }
+  btn.disabled = false; btn.textContent = '🔍 HUNT';
+}
+
+function generateDemoResults(city, keyword, count) {
+  const agencies = [
+    {name:`${city} Premium Properties`, formatted_address:`Main Boulevard, ${city}`, rating:4.7, user_ratings_total:142, website:`https://premiumprop${city.toLowerCase()}.com`, formatted_phone_number:`+92 300 ${Math.floor(1000000+Math.random()*9000000)}`},
+    {name:`Al Hafeez Realty`, formatted_address:`Gulberg III, ${city}`, rating:4.5, user_ratings_total:89, website:`https://alhafeezrealty.pk`, formatted_phone_number:`+92 321 ${Math.floor(1000000+Math.random()*9000000)}`},
+    {name:`${city} Estates & Properties`, formatted_address:`F-7 Markaz, ${city}`, rating:4.2, user_ratings_total:67, website:``, formatted_phone_number:`+92 333 ${Math.floor(1000000+Math.random()*9000000)}`},
+    {name:`Capital Real Estate`, formatted_address:`Blue Area, ${city}`, rating:4.8, user_ratings_total:203, website:`https://capitalre.pk`, formatted_phone_number:`+92 311 ${Math.floor(1000000+Math.random()*9000000)}`},
+    {name:`Sky Homes ${city}`, formatted_address:`DHA Phase 2, ${city}`, rating:3.9, user_ratings_total:34, website:``, formatted_phone_number:``},
+    {name:`Vision Properties`, formatted_address:`Bahria Town, ${city}`, rating:4.6, user_ratings_total:118, website:`https://visionprops.pk`, formatted_phone_number:`+92 300 ${Math.floor(1000000+Math.random()*9000000)}`},
+    {name:`Dream Homes Agency`, formatted_address:`Johar Town, ${city}`, rating:4.3, user_ratings_total:76, website:`https://dreamhomes.pk`, formatted_phone_number:`+92 342 ${Math.floor(1000000+Math.random()*9000000)}`},
+    {name:`${city} Land & Property`, formatted_address:`Model Town, ${city}`, rating:4.1, user_ratings_total:45, website:``, formatted_phone_number:`+92 300 ${Math.floor(1000000+Math.random()*9000000)}`},
+    {name:`Horizon Developers`, formatted_address:`Cantt, ${city}`, rating:4.9, user_ratings_total:312, website:`https://horizondevelopers.pk`, formatted_phone_number:`+92 321 ${Math.floor(1000000+Math.random()*9000000)}`},
+    {name:`Pearl Properties`, formatted_address:`Gulshan Iqbal, ${city}`, rating:4.4, user_ratings_total:91, website:`https://pearlprop.pk`, formatted_phone_number:`+92 333 ${Math.floor(1000000+Math.random()*9000000)}`},
+    {name:`Elite Realty Group`, formatted_address:`Clifton, ${city}`, rating:4.7, user_ratings_total:156, website:`https://eliterealty.pk`, formatted_phone_number:`+92 300 ${Math.floor(1000000+Math.random()*9000000)}`},
+    {name:`Green Valley Estates`, formatted_address:`DHA, ${city}`, rating:4.0, user_ratings_total:28, website:``, formatted_phone_number:`+92 321 ${Math.floor(1000000+Math.random()*9000000)}`},
+  ];
+  return agencies.slice(0, Math.min(count, agencies.length));
+}
+
+function processPlace(p, city) {
+  const hasWeb = !!(p.website || p.url);
+  const hasPhone = !!p.formatted_phone_number;
+  const rating = p.rating || 0;
+  const reviews = p.user_ratings_total || 0;
+  // Score: rating(40) + reviews(25) + website(20) + phone(15)
+  const score = Math.min(99, Math.round(
+    (rating/5)*40 + Math.min(reviews/200,1)*25 + (hasWeb?20:0) + (hasPhone?15:0)
+  ));
+  return {
+    name: p.name,
+    address: p.formatted_address || city,
+    phone: p.formatted_phone_number || '',
+    website: p.website || p.url || '',
+    rating: rating,
+    reviews: reviews,
+    email: extractEmailFromWebsite(p.website),
+    score,
+    city,
+    source: 'Google Maps',
+    _raw: p
+  };
+}
+
+function extractEmailFromWebsite(url) {
+  if(!url) return '';
+  // Pattern-guess common emails from domain
+  try {
+    const domain = new URL(url).hostname.replace('www.','');
+    const guesses = ['info@'+domain,'contact@'+domain,'hello@'+domain];
+    return guesses[0]; // Return first guess — user should verify
+  } catch(e) { return ''; }
+}
+
+function setProgress(pct, status, found) {
+  document.getElementById('prog-bar').style.width = pct + '%';
+  document.getElementById('prog-status').textContent = status;
+  document.getElementById('prog-found').textContent = found + ' found';
+}
+function logProgress(msg) {
+  const el = document.getElementById('prog-log');
+  el.innerHTML += `<div>${msg}</div>`;
+  el.scrollTop = el.scrollHeight;
+}
+
+function renderResults(results) {
+  if(!results.length) {
+    document.getElementById('results-area').innerHTML = '<div class="empty-state"><div class="icon">😕</div><h3>NO RESULTS</h3><p>Try different city or keyword</p></div>';
+    return;
+  }
+  const html = `
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:.85rem">
+      <span style="font-family:var(--mono);font-size:11px;color:var(--muted2)">${results.length} agencies found — sorted by score</span>
+      <span style="font-family:var(--mono);font-size:11px;color:var(--muted)" id="selected-count">0 selected</span>
+    </div>
+    <div class="result-grid">${results.map((r,i) => resultCard(r, i)).join('')}</div>`;
+  document.getElementById('results-area').innerHTML = html;
+}
+
+function resultCard(r, i) {
+  const sc = r.score >= 70 ? 'score-hi' : r.score >= 50 ? 'score-mid' : 'score-lo';
+  const stars = r.rating ? '★'.repeat(Math.round(r.rating)) + '☆'.repeat(5-Math.round(r.rating)) : '';
+  return `
+  <div class="result-card" id="rc-${i}" data-idx="${i}" onclick="toggleResult(${i}, this)" data-result='${JSON.stringify(r).replace(/'/g,"&#39;")}'>
+    <div class="select-cb" id="cb-${i}"></div>
+    <div style="padding-left:24px">
+      <div class="rc-top">
+        <div class="rc-name">${r.name}</div>
+        <div class="rc-score ${sc}">${r.score}</div>
+      </div>
+      <div class="rc-addr">📍 ${r.address}</div>
+      <div class="rc-meta">
+        ${r.website ? `<span class="rc-tag has-web">🌐 Website</span>` : '<span class="rc-tag">No website</span>'}
+        ${r.phone ? `<span class="rc-tag has-phone">📞 Phone</span>` : ''}
+        ${r.email ? `<span class="rc-tag has-email">✉️ Email found</span>` : ''}
+      </div>
+      ${r.rating ? `<div class="rc-rating"><span class="stars">${stars}</span> ${r.rating} (${r.reviews} reviews)</div>` : ''}
+    </div>
+  </div>`;
+}
+
+let huntResults = [];
+function toggleResult(i, card) {
+  if(selectedResults.has(i)) { selectedResults.delete(i); card.classList.remove('selected'); document.getElementById('cb-'+i).textContent=''; }
+  else { selectedResults.add(i); card.classList.add('selected'); document.getElementById('cb-'+i).textContent='✓'; }
+  const cnt = selectedResults.size;
+  const sc = document.getElementById('selected-count');
+  if(sc) sc.textContent = cnt + ' selected';
+  document.getElementById('add-selected-btn').disabled = cnt === 0;
+}
+function selectAll() {
+  document.querySelectorAll('.result-card').forEach((card,i) => {
+    if(!selectedResults.has(i)) { selectedResults.add(i); card.classList.add('selected'); document.getElementById('cb-'+i).textContent='✓'; }
+  });
+  const cnt = selectedResults.size;
+  const sc = document.getElementById('selected-count');
+  if(sc) sc.textContent = cnt + ' selected';
+  document.getElementById('add-selected-btn').disabled = cnt === 0;
+}
+
+function addSelectedToLeads() {
+  const cards = document.querySelectorAll('.result-card');
+  let added = 0;
+  selectedResults.forEach(i => {
+    const card = cards[i];
+    if(!card) return;
+    try {
+      const data = JSON.parse(card.getAttribute('data-result').replace(/&#39;/g,"'"));
+      const exists = leads.find(l => l.name === data.name && l.city === data.city);
+      if(!exists) {
+        leads.push({ id: nextId++, ...data, status:'new', value:0, notes:'', contact:'', addedAt: new Date().toISOString() });
+        added++;
+      }
+    } catch(e) {}
+  });
+  save(); updateBadges();
+  toast(added + ' leads added! ' + (leads.length - added) + ' already existed.');
+  if(added > 0) { populateComposeSelect(); }
+}
+
+// ══════════════════════════════════════════════════════════
+//  LEADS TABLE
+// ══════════════════════════════════════════════════════════
+function renderLeadsTable() {
+  const q = (document.getElementById('lead-search')?.value||'').toLowerCase();
+  const fs = document.getElementById('lead-filter')?.value || '';
+  const sort = document.getElementById('lead-sort')?.value || 'score';
+  document.getElementById('leads-count-label').textContent = leads.length + ' agencies tracked';
+
+  let list = leads.filter(l =>
+    (l.name+l.city+l.email+l.phone).toLowerCase().includes(q) &&
+    (!fs || l.status === fs)
+  );
+  list.sort((a,b) => sort==='name' ? a.name.localeCompare(b.name) : sort==='date' ? new Date(b.addedAt)-new Date(a.addedAt) : b.score-a.score);
+
+  const tbody = document.getElementById('leads-tbody');
+  if(!list.length) {
+    tbody.innerHTML = `<tr><td colspan="8"><div class="empty-state" style="padding:2rem"><div class="icon">🎯</div><h3>NO LEADS YET</h3><p>Hunt for agencies in the Google Maps tab</p></div></td></tr>`;
+    return;
+  }
+
+  const scColor = s => s>=70?'var(--green)':s>=50?'var(--amber)':'var(--red)';
+  tbody.innerHTML = list.map(l => `
+    <tr>
+      <td><input type="checkbox" ${selectedLeadIds.has(l.id)?'checked':''} onchange="toggleLeadSelect(${l.id},this.checked)" style="cursor:pointer"></td>
+      <td><div class="lead-name">${l.name}</div><div class="lead-loc">📍 ${l.city||'—'}</div></td>
+      <td>
+        <div class="score-cell">
+          <span style="font-family:var(--mono);font-size:11px;font-weight:700;color:${scColor(l.score)}">${l.score}</span>
+          <div class="score-bar-mini"><div class="score-bar-fill" style="width:${l.score}%;background:${scColor(l.score)}"></div></div>
+        </div>
+      </td>
+      <td><div class="email-cell">${l.email||'<span style="color:var(--muted)">—</span>'}</div></td>
+      <td><span style="font-family:var(--mono);font-size:10px;color:var(--muted2)">${l.phone||'—'}</span></td>
+      <td><span class="status-pill sp-${l.status}">${l.status.toUpperCase()}</span></td>
+      <td><span style="font-family:var(--mono);font-size:10px;color:var(--muted)">${l.source||'—'}</span></td>
+      <td>
+        <div class="tactions">
+          <button class="btn sm blue" onclick="composeFor(${l.id})">✍️ COMPOSE</button>
+          <button class="btn sm" onclick="openLeadModal(${l.id})">EDIT</button>
+        </div>
+      </td>
+    </tr>`).join('');
+}
+
+function toggleLeadSelect(id, on) {
+  if(on) selectedLeadIds.add(id); else selectedLeadIds.delete(id);
+}
+function toggleAllLeads(on) {
+  selectedLeadIds.clear();
+  if(on) leads.forEach(l => selectedLeadIds.add(l.id));
+  renderLeadsTable();
+}
+function selectAllLeads() {
+  document.getElementById('lead-check-all').checked = true;
+  toggleAllLeads(true);
+}
+
+function exportCSV() {
+  const rows = [['Name','City','Email','Phone','Website','Score','Status','Rating','Reviews']];
+  leads.forEach(l => rows.push([l.name,l.city,l.email,l.phone,l.website,l.score,l.status,l.rating,l.reviews]));
+  const csv = rows.map(r => r.map(c => `"${(c||'').toString().replace(/"/g,'""')}"`).join(',')).join('\n');
+  const a = document.createElement('a');
+  a.href = 'data:text/csv;charset=utf-8,' + encodeURIComponent(csv);
+  a.download = 'client_hunter_leads_'+Date.now()+'.csv';
+  a.click();
+  toast('CSV exported!');
+}
+
+function queueSelected() {
+  let added = 0;
+  selectedLeadIds.forEach(id => {
+    const l = leads.find(x => x.id===id);
+    if(!l || !l.email) return;
+    const inQ = emailQueue.find(q => q.leadId === id && q.status==='pending');
+    if(!inQ) {
+      emailQueue.push({id:'q'+Date.now()+'_'+id, leadId:id, name:l.name, email:l.email, status:'pending', subject:'', body:'', addedAt: new Date().toISOString()});
+      l.status = 'queued';
+      added++;
+    }
+  });
+  save(); updateBadges(); renderLeadsTable();
+  toast(added + ' leads added to queue!');
+}
+
+// ══════════════════════════════════════════════════════════
+//  EMAIL COMPOSER
+// ══════════════════════════════════════════════════════════
+function populateComposeSelect() {
+  const sel = document.getElementById('compose-lead');
+  if(!sel) return;
+  sel.innerHTML = '<option value="">— choose an agency —</option>' +
+    leads.filter(l=>l.status!=='closed'&&l.status!=='pass').map(l =>
+      `<option value="${l.id}">${l.name} (${l.city||''})</option>`
+    ).join('');
+  document.getElementById('compose-from').textContent = cfg.senderName ? `${cfg.senderName} <${cfg.senderEmail}>` : 'Configure in Setup';
+}
+
+function loadLeadForCompose() {
+  const id = parseInt(document.getElementById('compose-lead').value);
+  currentComposeLead = leads.find(l => l.id===id) || null;
+  if(currentComposeLead) {
+    document.getElementById('compose-to').value = currentComposeLead.email || '';
+  }
+}
+
+function composeFor(id) {
+  const l = leads.find(x=>x.id===id);
+  if(!l) return;
+  nav('compose', document.querySelectorAll('.sitem')[5]);
+  setTimeout(() => {
+    document.getElementById('compose-lead').value = id;
+    loadLeadForCompose();
+    generateEmail();
+  }, 150);
+}
+
+async function generateEmail() {
+  if(!cfg.claude) { toast('Add Groq API key in Setup!', true); return; }
+  const lead = currentComposeLead;
+  if(!lead) { toast('Select a lead first!', true); return; }
+  const type = document.getElementById('email-type').value;
+  const bodyEl = document.getElementById('compose-body');
+  const statusEl = document.getElementById('compose-status');
+  bodyEl.textContent = '';
+  bodyEl.classList.add('streaming');
+  statusEl.textContent = 'generating...';
+  document.getElementById('send-one-btn').disabled = true;
+
+  const typePrompts = {
+    cold:`Write a personalized cold email to ${lead.name} (real estate agency in ${lead.city||'Pakistan'}). My service: ${cfg.pitch||'I convert property photos into interactive 3D walkthroughs using PlayCanvas. Works on all devices, no app needed, 48hr delivery.'} Keep it under 100 words, direct, outcome-focused, not pushy. End with a soft call to action (demo or reply). No clichés.`,
+    followup:`Write a short follow-up email to ${lead.name} real estate agency in ${lead.city||'Pakistan'}. This is 4 days after an unreplied cold email about PlayCanvas 3D property tours. Be human and brief. Max 60 words.`,
+    demo:`Write an email to ${lead.name} real estate agency in ${lead.city||'Pakistan'} inviting them to a 10-minute demo of an interactive 3D property tour system. My service: ${cfg.pitch}. Be confident and specific. Max 80 words.`
+  };
+
+  const subjectPrompts = {
+    cold:`Give ONLY a compelling cold email subject line (max 8 words) for an email to a real estate agency about turning their property photos into interactive 3D tours. No quotes, just the subject line.`,
+    followup:`Give ONLY a short follow-up email subject line (max 6 words) to a real estate agency. Use "Re:" prefix. Just the text.`,
+    demo:`Give ONLY a demo invite subject line (max 7 words) for a 3D property tour demo. No quotes.`
+  };
+
+  try {
+    const groqHeaders = {'Content-Type':'application/json','Authorization':'Bearer '+cfg.claude};
+    const [bodyResp, subResp] = await Promise.all([
+      fetch('https://api.groq.com/openai/v1/chat/completions',{method:'POST',headers:groqHeaders,body:JSON.stringify({model:'llama-3.3-70b-versatile',max_tokens:400,messages:[{role:'user',content:typePrompts[type]}]})}),
+      fetch('https://api.groq.com/openai/v1/chat/completions',{method:'POST',headers:groqHeaders,body:JSON.stringify({model:'llama-3.3-70b-versatile',max_tokens:60,messages:[{role:'user',content:subjectPrompts[type]}]})})
+    ]);
+    const [bd, sd] = await Promise.all([bodyResp.json(), subResp.json()]);
+    const body = bd.choices?.[0]?.message?.content || bd.error?.message || 'Error generating email.';
+    const subject = sd.choices?.[0]?.message?.content?.trim() || 'Quick question about your listings';
+    currentEmailDraft = {subject, body};
+    bodyEl.classList.remove('streaming');
+    bodyEl.textContent = '';
+    // Typewriter
+    let i=0;
+    const tick = setInterval(() => { bodyEl.textContent += body[i]||''; i++; if(i>=body.length) clearInterval(tick); },8);
+    document.getElementById('compose-subject').textContent = subject;
+    statusEl.textContent = '✓ done';
+    document.getElementById('send-one-btn').disabled = false;
+  } catch(e) {
+    bodyEl.classList.remove('streaming');
+    bodyEl.textContent = 'Error: ' + e.message;
+    statusEl.textContent = '✗ failed';
+  }
+}
+
+async function generateEmailForAll() {
+  if(!cfg.claude) { toast('Add Groq API key in Setup!', true); return; }
+  const newLeads = leads.filter(l=>l.status==='new'&&l.email);
+  if(!newLeads.length) { toast('No new leads with emails to generate for!', true); return; }
+  toast(`Generating emails for ${newLeads.length} leads... this may take a moment`);
+  for(const l of newLeads) {
+    currentComposeLead = l;
+    document.getElementById('compose-lead').value = l.id;
+    await generateEmail();
+    await sleep(500);
+    if(currentEmailDraft.body) {
+      const existsInQ = emailQueue.find(q=>q.leadId===l.id&&q.status==='pending');
+      if(!existsInQ) {
+        emailQueue.push({id:'q'+Date.now()+'_'+l.id,leadId:l.id,name:l.name,email:l.email,status:'pending',subject:currentEmailDraft.subject,body:currentEmailDraft.body,addedAt:new Date().toISOString()});
+        l.status='queued';
+      }
+    }
+  }
+  save(); updateBadges();
+  toast(`Done! ${newLeads.length} emails generated and added to queue.`);
+}
+
+function regenerateEmail() { generateEmail(); }
+
+async function sendThisEmail() {
+  const to = document.getElementById('compose-to').value.trim();
+  if(!to) { toast('Enter recipient email!', true); return; }
+  if(!cfg.ejsPub || !cfg.ejsSvc || !cfg.ejsTpl) { toast('Configure EmailJS in Setup!', true); return; }
+  if(!currentEmailDraft.body) { toast('Generate an email first!', true); return; }
+  const btn = document.getElementById('send-one-btn');
+  btn.disabled = true; btn.textContent = '⏳ SENDING...';
+  try {
+    await emailjs.send(cfg.ejsSvc, cfg.ejsTpl, {
+      to_email: to,
+      to_name: currentComposeLead?.name || 'Team',
+      subject: currentEmailDraft.subject,
+      message: currentEmailDraft.body,
+      from_name: cfg.senderName
+    });
+    if(currentComposeLead) { currentComposeLead.status = 'sent'; }
+    sendLog.unshift({name:currentComposeLead?.name||to,email:to,subject:currentEmailDraft.subject,at:new Date().toISOString(),status:'sent'});
+    save(); updateBadges(); renderLeadsTable();
+    toast('✉️ Email sent to ' + to + '!');
+    btn.textContent = '✅ SENT!';
+    setTimeout(() => { btn.textContent = '📤 SEND THIS EMAIL'; btn.disabled = false; }, 3000);
+  } catch(e) {
+    toast('Send failed: ' + e.text, true);
+    btn.disabled = false; btn.textContent = '📤 SEND THIS EMAIL';
+  }
+}
+
+function addToQueue() {
+  if(!currentComposeLead || !currentEmailDraft.body) { toast('Generate an email first!', true); return; }
+  const to = document.getElementById('compose-to').value.trim() || currentComposeLead.email;
+  if(!to) { toast('No email address for this lead!', true); return; }
+  const existsInQ = emailQueue.find(q=>q.leadId===currentComposeLead.id&&q.status==='pending');
+  if(existsInQ) { toast('Already in queue!', true); return; }
+  emailQueue.push({id:'q'+Date.now(),leadId:currentComposeLead.id,name:currentComposeLead.name,email:to,status:'pending',subject:currentEmailDraft.subject,body:currentEmailDraft.body,addedAt:new Date().toISOString()});
+  currentComposeLead.status = 'queued';
+  save(); updateBadges();
+  toast('Added to send queue!');
+}
+
+function copyEmail() {
+  const txt = `Subject: ${currentEmailDraft.subject}\n\n${currentEmailDraft.body}`;
+  navigator.clipboard.writeText(txt).then(() => toast('Copied to clipboard!'));
+}
+
+// TEMPLATES
+const TEMPLATES = [
+  {name:'Cold Intro',subject:'Quick question about your listings',body:`Hi [Name],
+
+I noticed [Agency] has some beautiful listings on Zameen/Bayut — I'd love to show you something that makes them stand out even more.
+
+I convert property photos into interactive 3D walkthroughs using PlayCanvas. Buyers can explore any listing from any angle, on any phone — no app needed.
+
+Delivered in 48 hours. Can I show you a 60-second demo?
+
+[Your Name]`},
+  {name:'Follow-Up',subject:'Re: 3D property tours for [Agency]',body:`Hi [Name],
+
+Just following up on my earlier message — wanted to make sure it didn't get lost.
+
+Agencies I've worked with saw buyers spending 3× longer on listings after adding the 3D experience.
+
+Worth a 5-minute look?
+
+[Your Name]`},
+  {name:'Demo Invite',subject:'Your 10-min demo is ready',body:`Hi [Name],
+
+I've prepared a live 3D demo using a property similar to your listings. You can explore it right now — just click the link.
+
+[DEMO LINK]
+
+Takes 10 minutes. If you like what you see, we can talk next steps.
+
+[Your Name]`}
+];
+function renderTemplates() {
+  const el = document.getElementById('template-cards');
+  if(!el) return;
+  el.innerHTML = TEMPLATES.map((t,i) => `
+    <div style="background:var(--bg2);border:1px solid var(--border2);border-radius:4px;padding:.85rem">
+      <div style="font-family:var(--mono);font-size:11px;font-weight:700;color:var(--muted2);margin-bottom:.5rem">${t.name}</div>
+      <div style="font-family:var(--mono);font-size:10px;color:var(--muted);margin-bottom:.65rem;line-height:1.5">${t.subject}</div>
+      <div class="btn-row">
+        <button class="btn sm" onclick="useTemplate(${i})">USE</button>
+        <button class="btn sm" onclick="copyTemplate(${i})">COPY</button>
+      </div>
+    </div>`).join('');
+}
+function useTemplate(i) {
+  currentEmailDraft = {subject: TEMPLATES[i].subject, body: TEMPLATES[i].body};
+  document.getElementById('compose-body').textContent = TEMPLATES[i].body;
+  document.getElementById('compose-subject').textContent = TEMPLATES[i].subject;
+  document.getElementById('send-one-btn').disabled = false;
+}
+function copyTemplate(i) {
+  navigator.clipboard.writeText(`Subject: ${TEMPLATES[i].subject}\n\n${TEMPLATES[i].body}`).then(() => toast('Template copied!'));
+}
+
+// ══════════════════════════════════════════════════════════
+//  QUEUE & SENDING
+// ══════════════════════════════════════════════════════════
+function renderQueue() {
+  const pending = emailQueue.filter(q=>q.status==='pending').length;
+  const sentToday = countSentToday();
+  const totalSent = emailQueue.filter(q=>q.status==='sent').length + sendLog.length;
+  const failed = emailQueue.filter(q=>q.status==='failed').length;
+
+  document.getElementById('qs-pending').textContent = pending;
+  document.getElementById('qs-today').textContent = sentToday;
+  document.getElementById('qs-sent').textContent = totalSent;
+  document.getElementById('qs-failed').textContent = failed;
+
+  const el = document.getElementById('queue-list');
+  if(!emailQueue.length) {
+    el.innerHTML = `<div class="empty-state" style="padding:2rem"><div class="icon">📭</div><h3>QUEUE EMPTY</h3><p>Add leads from the Leads tab or use the Email Composer</p></div>`;
+    return;
+  }
+  el.innerHTML = emailQueue.map((q,i) => `
+    <div class="queue-item">
+      <div class="qi-num">${i+1}</div>
+      <div>
+        <div class="qi-name">${q.name}</div>
+        <div class="qi-email">${q.email}</div>
+        ${q.subject ? `<div style="font-family:var(--mono);font-size:10px;color:var(--muted);margin-top:2px">Subject: ${q.subject.substring(0,50)}...</div>` : ''}
+      </div>
+      <span class="qi-${q.status}">${q.status.toUpperCase()}</span>
+      <div class="qi-time">${q.addedAt ? new Date(q.addedAt).toLocaleDateString() : ''}</div>
+      <div class="btn-row">
+        ${q.status==='pending'?`<button class="btn sm primary" onclick="sendSingle('${q.id}')">SEND</button>`:''}
+        <button class="btn sm danger" onclick="removeFromQueue('${q.id}')">✕</button>
+      </div>
+    </div>`).join('');
+}
+
+function countSentToday() {
+  const today = new Date().toDateString();
+  return sendLog.filter(s => new Date(s.at).toDateString()===today).length +
+         emailQueue.filter(q=>q.status==='sent'&&new Date(q.sentAt||0).toDateString()===today).length;
+}
+
+async function sendSingle(qid) {
+  const item = emailQueue.find(q=>q.id===qid);
+  if(!item) return;
+  if(!cfg.ejsPub) { toast('Configure EmailJS in Setup first!', true); return; }
+  if(!item.subject || !item.body) {
+    toast('No email content — go to Composer to generate the email first.', true);
+    return;
+  }
+  item.status = 'sending';
+  renderQueue();
+  try {
+    await emailjs.send(cfg.ejsSvc, cfg.ejsTpl, {
+      to_email: item.email,
+      to_name: item.name,
+      subject: item.subject,
+      message: item.body,
+      from_name: cfg.senderName
+    });
+    item.status = 'sent';
+    item.sentAt = new Date().toISOString();
+    sendLog.unshift({name:item.name,email:item.email,subject:item.subject,at:item.sentAt,status:'sent'});
+    const lead = leads.find(l=>l.id===item.leadId);
+    if(lead) lead.status = 'sent';
+    save(); updateBadges(); renderQueue();
+    toast('✉️ Sent to ' + item.name + '!');
+  } catch(e) {
+    item.status = 'failed';
+    save(); renderQueue();
+    toast('Failed: ' + (e.text||e.message), true);
+  }
+}
+
+async function sendQueue() {
+  const limit = parseInt(document.getElementById('daily-limit').value) || 20;
+  const delay = parseInt(document.getElementById('send-delay').value) || 90;
+  const todaySent = countSentToday();
+  const canSend = limit - todaySent;
+  if(canSend <= 0) { toast(`Daily limit (${limit}) reached! Try again tomorrow.`, true); return; }
+
+  const pending = emailQueue.filter(q=>q.status==='pending'&&q.subject&&q.body);
+  const batch = pending.slice(0, Math.min(canSend, 5)); // max 5 at a time for review
+  if(!batch.length) { toast('No emails ready. Generate emails in Composer first!', true); return; }
+
+  toast(`Sending ${batch.length} emails (${delay}s delay between each)...`);
+  for(const item of batch) {
+    await sendSingle(item.id);
+    if(item !== batch[batch.length-1]) await sleep(delay * 1000);
+  }
+  toast(`Batch complete! ${batch.length} emails sent.`);
+}
+
+function removeFromQueue(qid) {
+  emailQueue = emailQueue.filter(q=>q.id!==qid);
+  save(); renderQueue(); updateBadges();
+}
+
+function clearSent() {
+  emailQueue = emailQueue.filter(q=>q.status!=='sent');
+  save(); renderQueue(); updateBadges();
+  toast('Cleared sent emails from queue.');
+}
+
+function toggleAuto() {
+  autoSendOn = !autoSendOn;
+  const toggle = document.getElementById('auto-toggle');
+  const label = document.getElementById('auto-label');
+  toggle.classList.toggle('on', autoSendOn);
+  label.textContent = 'AUTO-SEND: ' + (autoSendOn?'ON':'OFF');
+  if(autoSendOn) {
+    const delay = parseInt(document.getElementById('send-delay').value)||90;
+    autoTimer = setInterval(async () => {
+      const pending = emailQueue.filter(q=>q.status==='pending'&&q.subject&&q.body);
+      if(pending.length && countSentToday() < (parseInt(document.getElementById('daily-limit').value)||20)) {
+        await sendSingle(pending[0].id);
+        renderQueue();
+      }
+    }, delay * 1000);
+    toast('Auto-send ON — will send one email every '+delay+'s');
+  } else {
+    clearInterval(autoTimer);
+    toast('Auto-send OFF');
+  }
+}
+
+// ══════════════════════════════════════════════════════════
+//  ANALYTICS
+// ══════════════════════════════════════════════════════════
+function renderAnalytics() {
+  const goal = parseFloat(document.getElementById('goal-input')?.value)||1000;
+  const earned = leads.filter(l=>l.status==='closed').reduce((a,b)=>a+(b.value||499),0);
+  const pct = Math.min(100, earned/goal*100);
+  const need = Math.max(0, goal-earned);
+  document.getElementById('goal-earned-label').textContent = '$'+earned+' earned';
+  document.getElementById('goal-pct-label').textContent = pct.toFixed(0)+'%';
+  document.getElementById('goal-bar-fill').style.width = pct+'%';
+  document.getElementById('goal-need').textContent = '$'+need+' more';
+  document.getElementById('goal-clients').textContent = Math.ceil(need/499)+' more clients @ $499';
+
+  // Funnel
+  const stages = [{label:'Total Leads',status:null},{label:'Contacted',status:'sent'},{label:'Replied',status:'replied'},{label:'Closed',status:'closed'}];
+  const counts = [leads.length, leads.filter(l=>['sent','replied','closed'].includes(l.status)).length, leads.filter(l=>['replied','closed'].includes(l.status)).length, leads.filter(l=>l.status==='closed').length];
+  const maxC = Math.max(...counts,1);
+  const fColors = ['var(--green)','var(--blue)','var(--amber)','var(--green)'];
+  document.getElementById('funnel-chart').innerHTML = stages.map((s,i)=>`
+    <div class="funnel-row">
+      <div class="funnel-label">${s.label}</div>
+      <div class="funnel-track">
+        <div class="funnel-fill" style="width:${counts[i]/maxC*100}%;background:${fColors[i]};min-width:${counts[i]?20:0}px">${counts[i]||''}</div>
+      </div>
+      <div class="funnel-count" style="color:${fColors[i]}">${counts[i]}</div>
+    </div>`).join('');
+
+  // Sources
+  const srcs = {};
+  leads.forEach(l => { const s=l.source||'Unknown'; srcs[s]=(srcs[s]||0)+1; });
+  document.getElementById('source-chart').innerHTML = Object.entries(srcs).sort((a,b)=>b[1]-a[1]).map(([s,n])=>`
+    <div class="source-row"><span class="source-name">${s}</span><span class="source-count">${n} leads</span></div>`).join('') || '<div style="font-family:var(--mono);font-size:11px;color:var(--muted)">No data yet</div>';
+
+  // Conv rates
+  const total = leads.length||1;
+  const sent = leads.filter(l=>['sent','replied','closed'].includes(l.status)).length;
+  const replied = leads.filter(l=>['replied','closed'].includes(l.status)).length;
+  const closed = leads.filter(l=>l.status==='closed').length;
+  document.getElementById('conv-stats').innerHTML = [
+    ['Contact rate', (sent/total*100).toFixed(0)+'%', sent+' of '+total+' leads contacted'],
+    ['Reply rate', sent?(replied/sent*100).toFixed(0)+'%':'—', replied+' replies from '+sent+' emails'],
+    ['Close rate', replied?(closed/replied*100).toFixed(0)+'%':'—', closed+' deals from '+replied+' replies'],
+    ['Overall', (closed/total*100).toFixed(0)+'%', 'End-to-end conversion'],
+  ].map(([l,v,d])=>`<div style="display:flex;justify-content:space-between;border-bottom:1px solid var(--border);padding:.35rem 0"><span style="color:var(--muted2)">${l}</span><span><strong style="color:var(--green);margin-right:8px">${v}</strong><span style="font-size:10px;color:var(--muted)">${d}</span></span></div>`).join('');
+
+  // 7-day activity
+  const bars = [];
+  for(let i=6;i>=0;i--) {
+    const d = new Date(); d.setDate(d.getDate()-i);
+    const ds = d.toDateString();
+    const count = sendLog.filter(s=>new Date(s.at).toDateString()===ds).length;
+    bars.push({day:d.toLocaleDateString('en-US',{weekday:'short'}),count});
+  }
+  const maxB = Math.max(...bars.map(b=>b.count),1);
+  document.getElementById('activity-chart').innerHTML = bars.map(b=>`
+    <div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:4px">
+      <div style="font-family:var(--mono);font-size:10px;color:var(--green);font-weight:700">${b.count||''}</div>
+      <div style="width:100%;background:var(--green);border-radius:2px 2px 0 0;height:${Math.max(b.count/maxB*60,b.count?4:0)}px;transition:height .5s;opacity:.85"></div>
+      <div style="font-family:var(--mono);font-size:9px;color:var(--muted)">${b.day}</div>
+    </div>`).join('');
+}
+
+// ══════════════════════════════════════════════════════════
+//  LEAD MODAL
+// ══════════════════════════════════════════════════════════
+function openLeadModal(id) {
+  const l = leads.find(x=>x.id===id);
+  if(!l) return;
+  document.getElementById('lm-id').value = id;
+  document.getElementById('lm-name').value = l.name||'';
+  document.getElementById('lm-contact').value = l.contact||'';
+  document.getElementById('lm-email').value = l.email||'';
+  document.getElementById('lm-phone').value = l.phone||'';
+  document.getElementById('lm-city').value = l.city||'';
+  document.getElementById('lm-status').value = l.status||'new';
+  document.getElementById('lm-website').value = l.website||'';
+  document.getElementById('lm-value').value = l.value||'';
+  document.getElementById('lm-notes').value = l.notes||'';
+  document.getElementById('lead-modal').classList.add('open');
+}
+function closeLeadModal() { document.getElementById('lead-modal').classList.remove('open'); }
+function saveLeadModal() {
+  const id = parseInt(document.getElementById('lm-id').value);
+  const l = leads.find(x=>x.id===id);
+  if(!l) return;
+  l.name = document.getElementById('lm-name').value;
+  l.contact = document.getElementById('lm-contact').value;
+  l.email = document.getElementById('lm-email').value;
+  l.phone = document.getElementById('lm-phone').value;
+  l.city = document.getElementById('lm-city').value;
+  l.status = document.getElementById('lm-status').value;
+  l.website = document.getElementById('lm-website').value;
+  l.value = parseFloat(document.getElementById('lm-value').value)||0;
+  l.notes = document.getElementById('lm-notes').value;
+  save(); closeLeadModal(); renderLeadsTable(); updateBadges();
+  toast('Lead updated!');
+}
+function deleteLead(id) {
+  id = parseInt(id);
+  if(!confirm('Delete this lead?')) return;
+  leads = leads.filter(l=>l.id!==id);
+  emailQueue = emailQueue.filter(q=>q.leadId!==id);
+  save(); closeLeadModal(); renderLeadsTable(); updateBadges();
+  toast('Lead deleted.');
+}
+
+// ══════════════════════════════════════════════════════════
+//  UTILITIES
+// ══════════════════════════════════════════════════════════
+function updateBadges() {
+  document.getElementById('sb-leads').textContent = leads.length;
+  document.getElementById('sb-queue').textContent = emailQueue.filter(q=>q.status==='pending').length;
+  document.getElementById('top-leads').textContent = leads.length;
+  document.getElementById('top-sent').textContent = sendLog.length + emailQueue.filter(q=>q.status==='sent').length;
+  document.getElementById('top-replies').textContent = leads.filter(l=>['replied','closed'].includes(l.status)).length;
+  document.getElementById('top-rev').textContent = '$'+leads.filter(l=>l.status==='closed').reduce((a,b)=>a+(b.value||499),0);
+}
+
+function toast(msg, err=false) {
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.className = 'toast' + (err?' error':'');
+  el.style.display = 'block';
+  clearTimeout(el._t);
+  el._t = setTimeout(() => el.style.display='none', 3000);
+}
+
+function sleep(ms) { return new Promise(r=>setTimeout(r,ms)); }
+
+// ══════════════════════════════════════════════════════════
+//  INIT
+// ══════════════════════════════════════════════════════════
+load();
+if(cfg.ejsPub) emailjs.init(cfg.ejsPub);
+loadSetupFields();
+updateBadges();
+updateApiDots();
+renderTemplates();
+updateKwPreview();
+
+// Keyboard shortcut: Escape closes modal
+document.addEventListener('keydown', e => { if(e.key==='Escape') closeLeadModal(); });
+</script>
+</body>
+</html>
