@@ -982,7 +982,7 @@ async function runHunt() {
     const results = [];
     for(let i = 0; i < places.length; i++) {
       const p = places[i];
-      const agency = processPlace(p, city, 'OpenStreetMap / Overpass');
+      const agency = processPlace({...p, source: 'OpenStreetMap / Overpass'}, city);
       results.push(agency);
       setProgress(55 + Math.floor((i/places.length)*35), `Processing: ${agency.name}`, results.length);
       logProgress(`✓ ${agency.name} — ${agency.hasWebsite ? 'has website' : 'no website'} — score: ${agency.score}`);
@@ -997,7 +997,7 @@ async function runHunt() {
     setProgress(0, '⚠️ Overpass fallback: ' + err.message, 0);
     logProgress('OVERPASS FALLBACK: ' + err.message);
     const demos = generateDemoResults(city, keyword, maxR);
-    const processed = demos.map(p => processPlace(p, city, 'Demo Mode')).sort((a,b) => b.score - a.score);
+    const processed = demos.map(p => processPlace({...p, source: 'Demo Mode'}, city)).sort((a,b) => b.score - a.score);
     renderResults(processed);
     toast('Showing demo results — Overpass returned no live matches or was unavailable', true);
   }
@@ -1042,6 +1042,7 @@ function overpassElementToPlace(el) {
     osmId: el.id,
     lat: el.lat || el.center?.lat,
     lon: el.lon || el.center?.lon,
+    source: 'OpenStreetMap / Overpass',
     _tags: t
   };
 }
@@ -1074,7 +1075,7 @@ function generateDemoResults(city, keyword, count) {
   return agencies.slice(0, Math.min(count, agencies.length));
 }
 
-function processPlace(p, city, source = 'OpenStreetMap / Overpass') {
+function processPlace(p, city) {
   const analysis = analyzeWebsiteOpportunity(p, city);
   return {
     name: p.name,
@@ -1085,7 +1086,7 @@ function processPlace(p, city, source = 'OpenStreetMap / Overpass') {
     reviews: p.user_ratings_total || 0,
     email: extractEmailFromWebsite(p.website),
     city,
-    source,
+    source: p.source || p._source || 'OpenStreetMap / Overpass',
     _raw: p,
     ...analysis,
     value: analysis.dealValueEstimate,
@@ -1223,7 +1224,16 @@ function renderLeadsTable() {
 
   const tbody = document.getElementById('leads-tbody');
   if(!list.length) {
-    tbody.innerHTML = `<tr><td colspan="10"><div class="empty-state" style="padding:2rem"><div class="icon">🎯</div><h3>NO LEADS YET</h3><p>Hunt for agencies in the OpenStreetMap tab</p></div></td></tr>`;
+    tbody.innerHTML = `
+      <tr>
+        <td colspan="10">
+          <div class="empty-state" style="padding:2rem">
+            <div class="icon">🎯</div>
+            <h3>NO LEADS YET</h3>
+            <p>Hunt for agencies in the OpenStreetMap tab</p>
+          </div>
+        </td>
+      </tr>`;
     return;
   }
 
