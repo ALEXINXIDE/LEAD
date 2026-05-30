@@ -1078,6 +1078,10 @@ function generateDemoResults(city, keyword, count) {
   return agencies.slice(0, Math.min(count, agencies.length));
 }
 
+function resolveLeadSource(place) {
+  return place.source || place._source || LEAD_SOURCE_OSM;
+}
+
 function processPlace(p, city) {
   const analysis = analyzeWebsiteOpportunity(p, city);
   return {
@@ -1089,7 +1093,7 @@ function processPlace(p, city) {
     reviews: p.user_ratings_total || 0,
     email: extractEmailFromWebsite(p.website),
     city,
-    source: p.source || p._source || LEAD_SOURCE_OSM,
+    source: resolveLeadSource(p),
     _raw: p,
     ...analysis,
     value: analysis.dealValueEstimate,
@@ -1473,7 +1477,7 @@ function copyEmail() {
 const TEMPLATES = [
   {name:'Path A · No Website',subject:'A modern website for [Agency]',body:`Hi [Name],
 
-I noticed [Agency] does not currently have a professional website. I can build a modern real estate website with mobile responsive pages, property showcases, lead forms, Google Maps, fast hosting, SEO-ready pages, and interactive PlayCanvas 3D property experiences.
+I noticed [Agency] does not currently have a professional website. I can build a modern real estate website with mobile responsive pages, property showcases, lead forms, interactive map embeds, fast hosting, SEO-ready pages, and interactive PlayCanvas 3D property experiences.
 
 It would let buyers explore your listings beyond social media posts and static photos.
 
