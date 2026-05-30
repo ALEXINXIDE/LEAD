@@ -338,7 +338,7 @@ tr:hover td{background:var(--bg2)}
     </div>
     <div class="form-row" style="margin-bottom:0">
       <label class="inp-label">Your Service Pitch (used to personalize emails)</label>
-      <textarea class="inp" id="cfg-pitch" rows="3" style="resize:none">I convert real estate property photos into interactive 3D walkthroughs using PlayCanvas. Buyers can explore listings from any angle on any device with no app needed. Delivered in 48 hours.</textarea>
+      <textarea class="inp" id="cfg-pitch" rows="3" style="resize:none">I build modern real estate websites and integrate interactive PlayCanvas 3D property experiences. For agencies without websites, I create the full website, hosting, lead forms, maps, SEO-ready pages, and property showcases. For agencies with websites, I add immersive 3D walkthroughs directly into existing listing pages.</textarea>
     </div>
   </div>
 
@@ -453,8 +453,20 @@ tr:hover td{background:var(--bg2)}
       <option value="closed">CLOSED</option>
       <option value="pass">PASS</option>
     </select>
+    <select class="inp" style="width:auto" id="website-filter" onchange="renderLeadsTable()">
+      <option value="">ALL WEBSITES</option>
+      <option value="no_website">NO WEBSITE</option>
+      <option value="has_website">HAS WEBSITE</option>
+      <option value="modern">MODERN WEBSITE</option>
+      <option value="outdated">OUTDATED WEBSITE</option>
+      <option value="static_photos">USES ONLY PHOTOS</option>
+      <option value="video">USES VIDEO</option>
+      <option value="virtual_tours">VIRTUAL TOURS</option>
+      <option value="3d">3D EXPERIENCES</option>
+    </select>
     <select class="inp" style="width:auto" id="lead-sort" onchange="renderLeadsTable()">
       <option value="score">SCORE ↓</option>
+      <option value="value">DEAL VALUE ↓</option>
       <option value="name">NAME A-Z</option>
       <option value="date">DATE ADDED</option>
     </select>
@@ -465,7 +477,7 @@ tr:hover td{background:var(--bg2)}
       <thead>
         <tr>
           <th><input type="checkbox" id="lead-check-all" onchange="toggleAllLeads(this.checked)" style="cursor:pointer"></th>
-          <th>AGENCY</th><th>SCORE</th><th>EMAIL</th><th>PHONE</th><th>STATUS</th><th>SOURCE</th><th style="text-align:right">ACTIONS</th>
+          <th>AGENCY</th><th>SCORE</th><th>WEBSITE INTEL</th><th>DEAL</th><th>EMAIL</th><th>PHONE</th><th>STATUS</th><th>SOURCE</th><th style="text-align:right">ACTIONS</th>
         </tr>
       </thead>
       <tbody id="leads-tbody"></tbody>
@@ -655,6 +667,15 @@ tr:hover td{background:var(--bg2)}
         <div class="form-row"><label class="inp-label">Website</label><input class="inp" id="lm-website"></div>
         <div class="form-row"><label class="inp-label">Deal Value ($)</label><input class="inp" id="lm-value" type="number"></div>
       </div>
+      <div class="form-grid form-grid-2">
+        <div class="form-row"><label class="inp-label">Service Path</label>
+          <select class="inp" id="lm-service-path"><option value="A">A — Build complete website</option><option value="B">B — Upgrade existing website</option></select>
+        </div>
+        <div class="form-row"><label class="inp-label">Website Quality</label>
+          <select class="inp" id="lm-site-quality"><option value="no_website">No website</option><option value="modern">Modern website</option><option value="outdated">Outdated website</option></select>
+        </div>
+      </div>
+      <div class="form-row"><label class="inp-label">Stored Website Analysis</label><textarea class="inp" id="lm-analysis" rows="4" style="resize:none" placeholder="Website findings and opportunity notes"></textarea></div>
       <div class="form-row"><label class="inp-label">Notes</label><textarea class="inp" id="lm-notes" rows="3" style="resize:none"></textarea></div>
     </div>
     <div class="modal-foot">
@@ -786,6 +807,122 @@ function updateApiDots() {
   dot('dot-email', !!(cfg.ejsPub && cfg.ejsSvc));
 }
 
+
+// ══════════════════════════════════════════════════════════
+//  BUSINESS OFFER INTELLIGENCE ENGINE
+// ══════════════════════════════════════════════════════════
+const SERVICE_PATHS = {
+  A: {
+    label: 'Path A · No Website',
+    dealRange: '$1,000–$5,000',
+    pitch: 'I noticed your agency does not currently have a professional website. I can build a modern property website that includes interactive 3D property experiences instead of relying only on social media listings.',
+    offer: 'Complete website creation + PlayCanvas property experiences'
+  },
+  B: {
+    label: 'Path B · Existing Website',
+    dealRange: '$2,000–$10,000+',
+    pitch: 'I noticed your listings currently rely on static photos. I can integrate interactive PlayCanvas 3D walkthroughs directly into your existing website so buyers can explore properties in a much more engaging way.',
+    offer: 'Existing website upgrade + PlayCanvas 3D walkthrough integration'
+  }
+};
+
+function analyzeWebsiteOpportunity(place, city) {
+  const website = place.website || place.url || '';
+  const name = place.name || '';
+  const text = `${name} ${website} ${place.formatted_address || ''}`.toLowerCase();
+  const hasWebsite = !!website;
+  const isLuxury = /luxury|premium|elite|pearl|capital|dha|clifton|estate|villa|signature|exclusive|prime/.test(text);
+  const isDeveloper = /developer|development|builders|projects|construction|off[-\s]?plan|horizon|land/.test(text);
+  const uses3dExperiences = /playcanvas|3d|matterport|kuula|sketchfab|model|walkthrough/.test(text);
+  const usesVirtualTours = uses3dExperiences || /virtual[-\s]?tour|tour|360|panorama/.test(text);
+  const usesVideo = /video|youtube|vimeo|reel|media/.test(text);
+  const looksModern = hasWebsite && /(premium|capital|vision|elite|horizon|pearl|modern|signature)/.test(text);
+  const siteQuality = !hasWebsite ? 'no_website' : (looksModern ? 'modern' : 'outdated');
+  const usesOnlyPhotos = hasWebsite && !usesVideo && !usesVirtualTours && !uses3dExperiences;
+  const servicePath = hasWebsite ? 'B' : 'A';
+  const reasons = [];
+
+  if(!hasWebsite) reasons.push('No professional website found');
+  if(siteQuality === 'outdated') reasons.push('Existing website appears outdated or under-optimized');
+  if(usesOnlyPhotos) reasons.push('Listings appear to rely on static photos');
+  if(isLuxury && (usesOnlyPhotos || !usesVirtualTours)) reasons.push('Luxury positioning with weak interactive presentation');
+  if(!usesVirtualTours) reasons.push('Missing virtual tours');
+  if(isDeveloper) reasons.push('Developer/off-plan project visualization opportunity');
+
+  const priorityScore = Math.min(99, Math.round(
+    (!hasWebsite ? 38 : 0) +
+    (siteQuality === 'outdated' ? 26 : 0) +
+    (usesOnlyPhotos ? 18 : 0) +
+    (isLuxury && (usesOnlyPhotos || !usesVirtualTours) ? 12 : 0) +
+    (!usesVirtualTours ? 10 : 0) +
+    (isDeveloper ? 8 : 0) +
+    Math.min((place.user_ratings_total || 0) / 20, 10) +
+    ((place.rating || 0) / 5) * 8 +
+    (place.formatted_phone_number ? 5 : 0)
+  ));
+
+  let dealMin = hasWebsite ? 2000 : 1000;
+  let dealMax = hasWebsite ? 10000 : 5000;
+  if(!hasWebsite && !isLuxury && !isDeveloper) { dealMin = 1000; dealMax = 5000; }
+  if(hasWebsite && siteQuality === 'modern' && !isLuxury && !isDeveloper) { dealMin = 1000; dealMax = 5000; }
+  if(!hasWebsite && !usesVirtualTours && !isLuxury && !isDeveloper) { dealMin = 500; dealMax = 5000; }
+  if(isLuxury || isDeveloper) { dealMin = Math.max(dealMin, 2000); dealMax = 10000; }
+
+  let valueProp = SERVICE_PATHS[servicePath].pitch;
+  if(isLuxury) valueProp += ' For a luxury agency, this creates a more premium presentation, improves buyer engagement, and can help move high-value listings faster.';
+  if(isDeveloper) valueProp += ' For developments and off-plan sales, interactive 3D project visualization helps buyers understand the property before it is built.';
+
+  return {
+    hasWebsite,
+    websiteStatus: hasWebsite ? 'has_website' : 'no_website',
+    siteQuality,
+    usesOnlyPhotos,
+    usesVideo,
+    usesVirtualTours,
+    uses3dExperiences,
+    isLuxury,
+    isDeveloper,
+    servicePath,
+    servicePathLabel: SERVICE_PATHS[servicePath].label,
+    recommendedOffer: SERVICE_PATHS[servicePath].offer,
+    valueProp,
+    opportunityReasons: reasons,
+    dealRange: `$${dealMin.toLocaleString()}–$${dealMax.toLocaleString()}${dealMax >= 10000 ? '+' : ''}`,
+    dealValueEstimate: Math.round((dealMin + dealMax) / 2),
+    score: priorityScore
+  };
+}
+
+function normalizeLeadIntelligence(lead) {
+  const analysis = analyzeWebsiteOpportunity({
+    name: lead.name,
+    website: lead.website,
+    url: lead.website,
+    formatted_address: lead.address || lead.city,
+    formatted_phone_number: lead.phone,
+    rating: lead.rating,
+    user_ratings_total: lead.reviews
+  }, lead.city || '');
+  return {...analysis, ...lead, score: lead.score || analysis.score};
+}
+
+function analysisSummary(lead) {
+  lead = normalizeLeadIntelligence(lead);
+  return [
+    lead.hasWebsite ? 'Has website' : 'No website',
+    lead.siteQuality === 'modern' ? 'Modern website' : lead.siteQuality === 'outdated' ? 'Outdated website' : 'Needs website',
+    lead.usesOnlyPhotos ? 'Uses only photos' : null,
+    lead.usesVideo ? 'Uses video' : null,
+    lead.usesVirtualTours ? 'Uses virtual tours' : 'Missing virtual tours',
+    lead.uses3dExperiences ? 'Uses 3D experiences' : 'No 3D experiences found'
+  ].filter(Boolean).join(' · ');
+}
+
+function formatLeadAnalysisNotes(lead) {
+  lead = normalizeLeadIntelligence(lead);
+  return `Website findings: ${analysisSummary(lead)}\nService path: ${lead.servicePathLabel}\nRecommended offer: ${lead.recommendedOffer}\nOpportunity reasons: ${lead.opportunityReasons.join('; ') || 'Review manually'}\nValue proposition: ${lead.valueProp}\nEstimated deal: ${lead.dealRange}`;
+}
+
 // ══════════════════════════════════════════════════════════
 //  GOOGLE MAPS HUNT
 // ══════════════════════════════════════════════════════════
@@ -893,26 +1030,21 @@ function generateDemoResults(city, keyword, count) {
 }
 
 function processPlace(p, city) {
-  const hasWeb = !!(p.website || p.url);
-  const hasPhone = !!p.formatted_phone_number;
-  const rating = p.rating || 0;
-  const reviews = p.user_ratings_total || 0;
-  // Score: rating(40) + reviews(25) + website(20) + phone(15)
-  const score = Math.min(99, Math.round(
-    (rating/5)*40 + Math.min(reviews/200,1)*25 + (hasWeb?20:0) + (hasPhone?15:0)
-  ));
+  const analysis = analyzeWebsiteOpportunity(p, city);
   return {
     name: p.name,
     address: p.formatted_address || city,
     phone: p.formatted_phone_number || '',
     website: p.website || p.url || '',
-    rating: rating,
-    reviews: reviews,
+    rating: p.rating || 0,
+    reviews: p.user_ratings_total || 0,
     email: extractEmailFromWebsite(p.website),
-    score,
     city,
     source: 'Google Maps',
-    _raw: p
+    _raw: p,
+    ...analysis,
+    value: analysis.dealValueEstimate,
+    notes: formatLeadAnalysisNotes(analysis)
   };
 }
 
@@ -964,9 +1096,14 @@ function resultCard(r, i) {
       </div>
       <div class="rc-addr">📍 ${r.address}</div>
       <div class="rc-meta">
-        ${r.website ? `<span class="rc-tag has-web">🌐 Website</span>` : '<span class="rc-tag">No website</span>'}
+        <span class="rc-tag ${r.hasWebsite?'has-web':''}">${r.hasWebsite ? '🌐 Has website' : '🚫 No website'}</span>
+        <span class="rc-tag">${r.servicePathLabel || (r.hasWebsite ? 'Path B · Existing Website' : 'Path A · No Website')}</span>
+        <span class="rc-tag">${r.siteQuality === 'outdated' ? '⚠️ Outdated' : r.siteQuality === 'modern' ? '✨ Modern' : '🧱 Build site'}</span>
+        ${r.usesOnlyPhotos ? '<span class="rc-tag">📷 Static photos</span>' : ''}
+        ${!r.usesVirtualTours ? '<span class="rc-tag">❌ No virtual tours</span>' : '<span class="rc-tag">🌀 Virtual tours</span>'}
         ${r.phone ? `<span class="rc-tag has-phone">📞 Phone</span>` : ''}
         ${r.email ? `<span class="rc-tag has-email">✉️ Email found</span>` : ''}
+        <span class="rc-tag has-email">💰 ${r.dealRange || '$1,000–$5,000'}</span>
       </div>
       ${r.rating ? `<div class="rc-rating"><span class="stars">${stars}</span> ${r.rating} (${r.reviews} reviews)</div>` : ''}
     </div>
@@ -1018,18 +1155,30 @@ function addSelectedToLeads() {
 function renderLeadsTable() {
   const q = (document.getElementById('lead-search')?.value||'').toLowerCase();
   const fs = document.getElementById('lead-filter')?.value || '';
+  const wf = document.getElementById('website-filter')?.value || '';
   const sort = document.getElementById('lead-sort')?.value || 'score';
   document.getElementById('leads-count-label').textContent = leads.length + ' agencies tracked';
 
-  let list = leads.filter(l =>
-    (l.name+l.city+l.email+l.phone).toLowerCase().includes(q) &&
-    (!fs || l.status === fs)
-  );
-  list.sort((a,b) => sort==='name' ? a.name.localeCompare(b.name) : sort==='date' ? new Date(b.addedAt)-new Date(a.addedAt) : b.score-a.score);
+  leads = leads.map(normalizeLeadIntelligence);
+  let list = leads.filter(l => {
+    const matchesSearch = (l.name+l.city+l.email+l.phone+(l.website||'')+analysisSummary(l)).toLowerCase().includes(q);
+    const matchesStatus = !fs || l.status === fs;
+    const matchesWebsite = !wf ||
+      (wf === 'no_website' && !l.hasWebsite) ||
+      (wf === 'has_website' && l.hasWebsite) ||
+      (wf === 'modern' && l.siteQuality === 'modern') ||
+      (wf === 'outdated' && l.siteQuality === 'outdated') ||
+      (wf === 'static_photos' && l.usesOnlyPhotos) ||
+      (wf === 'video' && l.usesVideo) ||
+      (wf === 'virtual_tours' && l.usesVirtualTours) ||
+      (wf === '3d' && l.uses3dExperiences);
+    return matchesSearch && matchesStatus && matchesWebsite;
+  });
+  list.sort((a,b) => sort==='name' ? a.name.localeCompare(b.name) : sort==='date' ? new Date(b.addedAt)-new Date(a.addedAt) : sort==='value' ? (b.dealValueEstimate||b.value||0)-(a.dealValueEstimate||a.value||0) : b.score-a.score);
 
   const tbody = document.getElementById('leads-tbody');
   if(!list.length) {
-    tbody.innerHTML = `<tr><td colspan="8"><div class="empty-state" style="padding:2rem"><div class="icon">🎯</div><h3>NO LEADS YET</h3><p>Hunt for agencies in the Google Maps tab</p></div></td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="10"><div class="empty-state" style="padding:2rem"><div class="icon">🎯</div><h3>NO LEADS YET</h3><p>Hunt for agencies in the Google Maps tab</p></div></td></tr>`;
     return;
   }
 
@@ -1044,6 +1193,14 @@ function renderLeadsTable() {
           <div class="score-bar-mini"><div class="score-bar-fill" style="width:${l.score}%;background:${scColor(l.score)}"></div></div>
         </div>
       </td>
+      <td>
+        <div style="font-family:var(--mono);font-size:10px;color:var(--text);line-height:1.55">
+          <div>${l.hasWebsite ? '🌐 Has website' : '🚫 No website'} · ${l.servicePathLabel || ''}</div>
+          <div style="color:var(--muted2)">${analysisSummary(l)}</div>
+          <div style="color:var(--amber)">${(l.opportunityReasons||[]).slice(0,2).join(' · ')}</div>
+        </div>
+      </td>
+      <td><span style="font-family:var(--mono);font-size:11px;color:var(--green);font-weight:700">${l.dealRange || '$1,000–$5,000'}</span></td>
       <td><div class="email-cell">${l.email||'<span style="color:var(--muted)">—</span>'}</div></td>
       <td><span style="font-family:var(--mono);font-size:10px;color:var(--muted2)">${l.phone||'—'}</span></td>
       <td><span class="status-pill sp-${l.status}">${l.status.toUpperCase()}</span></td>
@@ -1071,8 +1228,8 @@ function selectAllLeads() {
 }
 
 function exportCSV() {
-  const rows = [['Name','City','Email','Phone','Website','Score','Status','Rating','Reviews']];
-  leads.forEach(l => rows.push([l.name,l.city,l.email,l.phone,l.website,l.score,l.status,l.rating,l.reviews]));
+  const rows = [['Name','City','Email','Phone','Website','Website Status','Website Quality','Uses Only Photos','Uses Video','Uses Virtual Tours','Uses 3D','Service Path','Opportunity Reasons','Deal Range','Score','Status','Rating','Reviews']];
+  leads.map(normalizeLeadIntelligence).forEach(l => rows.push([l.name,l.city,l.email,l.phone,l.website,l.websiteStatus,l.siteQuality,l.usesOnlyPhotos,l.usesVideo,l.usesVirtualTours,l.uses3dExperiences,l.servicePathLabel,(l.opportunityReasons||[]).join('; '),l.dealRange,l.score,l.status,l.rating,l.reviews]));
   const csv = rows.map(r => r.map(c => `"${(c||'').toString().replace(/"/g,'""')}"`).join(',')).join('\n');
   const a = document.createElement('a');
   a.href = 'data:text/csv;charset=utf-8,' + encodeURIComponent(csv);
@@ -1088,7 +1245,7 @@ function queueSelected() {
     if(!l || !l.email) return;
     const inQ = emailQueue.find(q => q.leadId === id && q.status==='pending');
     if(!inQ) {
-      emailQueue.push({id:'q'+Date.now()+'_'+id, leadId:id, name:l.name, email:l.email, status:'pending', subject:'', body:'', addedAt: new Date().toISOString()});
+      emailQueue.push({id:'q'+Date.now()+'_'+id, leadId:id, name:l.name, email:l.email, status:'pending', subject:'', body:'', servicePath:l.servicePath, addedAt: new Date().toISOString()});
       l.status = 'queued';
       added++;
     }
@@ -1141,16 +1298,19 @@ async function generateEmail() {
   statusEl.textContent = 'generating...';
   document.getElementById('send-one-btn').disabled = true;
 
+  const intel = normalizeLeadIntelligence(lead);
+  const baseValueProp = intel.valueProp || SERVICE_PATHS[intel.servicePath || 'B'].pitch;
+  const offerContext = `Website analysis: ${analysisSummary(intel)}. Opportunity reasons: ${(intel.opportunityReasons||[]).join('; ')}. Recommended service: ${intel.recommendedOffer}. Estimated deal value: ${intel.dealRange}. Value proposition to use: ${baseValueProp}`;
   const typePrompts = {
-    cold:`Write a personalized cold email to ${lead.name} (real estate agency in ${lead.city||'Pakistan'}). My service: ${cfg.pitch||'I convert property photos into interactive 3D walkthroughs using PlayCanvas. Works on all devices, no app needed, 48hr delivery.'} Keep it under 100 words, direct, outcome-focused, not pushy. End with a soft call to action (demo or reply). No clichés.`,
-    followup:`Write a short follow-up email to ${lead.name} real estate agency in ${lead.city||'Pakistan'}. This is 4 days after an unreplied cold email about PlayCanvas 3D property tours. Be human and brief. Max 60 words.`,
-    demo:`Write an email to ${lead.name} real estate agency in ${lead.city||'Pakistan'} inviting them to a 10-minute demo of an interactive 3D property tour system. My service: ${cfg.pitch}. Be confident and specific. Max 80 words.`
+    cold:`Write a personalized cold email to ${lead.name} (real estate agency in ${lead.city||'Pakistan'}). ${offerContext}. My broader services: ${cfg.pitch}. Keep it under 100 words, direct, outcome-focused, not pushy. End with a soft call to action (demo or reply). No clichés.`,
+    followup:`Write a short follow-up email to ${lead.name} real estate agency in ${lead.city||'Pakistan'}. This is 4 days after an unreplied cold email. ${offerContext}. Be human and brief. Max 60 words.`,
+    demo:`Write an email to ${lead.name} real estate agency in ${lead.city||'Pakistan'} inviting them to a 10-minute demo. ${offerContext}. Be confident and specific. Max 80 words.`
   };
 
   const subjectPrompts = {
-    cold:`Give ONLY a compelling cold email subject line (max 8 words) for an email to a real estate agency about turning their property photos into interactive 3D tours. No quotes, just the subject line.`,
+    cold:`Give ONLY a compelling cold email subject line (max 8 words) for ${lead.name}. Context: ${intel.servicePath === 'A' ? 'agency has no website; offer complete website plus PlayCanvas 3D experiences' : 'agency has a website; offer PlayCanvas 3D walkthrough integration'}. No quotes, just the subject line.`,
     followup:`Give ONLY a short follow-up email subject line (max 6 words) to a real estate agency. Use "Re:" prefix. Just the text.`,
-    demo:`Give ONLY a demo invite subject line (max 7 words) for a 3D property tour demo. No quotes.`
+    demo:`Give ONLY a demo invite subject line (max 7 words) for a PlayCanvas property presentation demo. No quotes.`
   };
 
   try {
@@ -1248,34 +1408,34 @@ function copyEmail() {
 
 // TEMPLATES
 const TEMPLATES = [
-  {name:'Cold Intro',subject:'Quick question about your listings',body:`Hi [Name],
+  {name:'Path A · No Website',subject:'A modern website for [Agency]',body:`Hi [Name],
 
-I noticed [Agency] has some beautiful listings on Zameen/Bayut — I'd love to show you something that makes them stand out even more.
+I noticed [Agency] does not currently have a professional website. I can build a modern real estate website with mobile responsive pages, property showcases, lead forms, Google Maps, fast hosting, SEO-ready pages, and interactive PlayCanvas 3D property experiences.
 
-I convert property photos into interactive 3D walkthroughs using PlayCanvas. Buyers can explore any listing from any angle, on any phone — no app needed.
+It would let buyers explore your listings beyond social media posts and static photos.
 
-Delivered in 48 hours. Can I show you a 60-second demo?
-
-[Your Name]`},
-  {name:'Follow-Up',subject:'Re: 3D property tours for [Agency]',body:`Hi [Name],
-
-Just following up on my earlier message — wanted to make sure it didn't get lost.
-
-Agencies I've worked with saw buyers spending 3× longer on listings after adding the 3D experience.
-
-Worth a 5-minute look?
+Open to seeing a quick demo?
 
 [Your Name]`},
-  {name:'Demo Invite',subject:'Your 10-min demo is ready',body:`Hi [Name],
+  {name:'Path B · Website Upgrade',subject:'Interactive 3D tours for [Agency]',body:`Hi [Name],
 
-I've prepared a live 3D demo using a property similar to your listings. You can explore it right now — just click the link.
+I noticed your listings currently rely on static photos. I can integrate interactive PlayCanvas 3D walkthroughs directly into your existing website so buyers can explore properties in a much more engaging way.
 
-[DEMO LINK]
+This modernizes your property presentation and helps capture more qualified leads.
 
-Takes 10 minutes. If you like what you see, we can talk next steps.
+Worth a quick look?
+
+[Your Name]`},
+  {name:'Luxury / Developer',subject:'Premium property visualization for [Agency]',body:`Hi [Name],
+
+For premium listings and new developments, buyers need more than a photo gallery. I create interactive PlayCanvas 3D property experiences that help prospects understand layouts, finishes, and project value before they visit.
+
+This is especially useful for luxury presentation, buyer engagement, faster sales, and off-plan project visualization.
+
+Can I send a short demo?
 
 [Your Name]`}
-];
+]
 function renderTemplates() {
   const el = document.getElementById('template-cards');
   if(!el) return;
@@ -1469,6 +1629,9 @@ function renderAnalytics() {
     ['Reply rate', sent?(replied/sent*100).toFixed(0)+'%':'—', replied+' replies from '+sent+' emails'],
     ['Close rate', replied?(closed/replied*100).toFixed(0)+'%':'—', closed+' deals from '+replied+' replies'],
     ['Overall', (closed/total*100).toFixed(0)+'%', 'End-to-end conversion'],
+    ['No website', leads.filter(l=>!normalizeLeadIntelligence(l).hasWebsite).length, 'Path A complete website opportunities'],
+    ['Has website', leads.filter(l=>normalizeLeadIntelligence(l).hasWebsite).length, 'Path B integration opportunities'],
+    ['Static photos', leads.filter(l=>normalizeLeadIntelligence(l).usesOnlyPhotos).length, 'High priority PlayCanvas upgrade leads'],
   ].map(([l,v,d])=>`<div style="display:flex;justify-content:space-between;border-bottom:1px solid var(--border);padding:.35rem 0"><span style="color:var(--muted2)">${l}</span><span><strong style="color:var(--green);margin-right:8px">${v}</strong><span style="font-size:10px;color:var(--muted)">${d}</span></span></div>`).join('');
 
   // 7-day activity
@@ -1502,7 +1665,11 @@ function openLeadModal(id) {
   document.getElementById('lm-city').value = l.city||'';
   document.getElementById('lm-status').value = l.status||'new';
   document.getElementById('lm-website').value = l.website||'';
-  document.getElementById('lm-value').value = l.value||'';
+  const intel = normalizeLeadIntelligence(l);
+  document.getElementById('lm-value').value = l.value||intel.dealValueEstimate||'';
+  document.getElementById('lm-service-path').value = intel.servicePath || 'B';
+  document.getElementById('lm-site-quality').value = intel.siteQuality || 'outdated';
+  document.getElementById('lm-analysis').value = l.analysisNotes || formatLeadAnalysisNotes(intel);
   document.getElementById('lm-notes').value = l.notes||'';
   document.getElementById('lead-modal').classList.add('open');
 }
@@ -1518,7 +1685,14 @@ function saveLeadModal() {
   l.city = document.getElementById('lm-city').value;
   l.status = document.getElementById('lm-status').value;
   l.website = document.getElementById('lm-website').value;
-  l.value = parseFloat(document.getElementById('lm-value').value)||0;
+  const refreshed = normalizeLeadIntelligence(l);
+  Object.assign(l, refreshed);
+  l.servicePath = document.getElementById('lm-service-path').value;
+  l.siteQuality = document.getElementById('lm-site-quality').value;
+  l.hasWebsite = l.servicePath === 'B';
+  l.websiteStatus = l.hasWebsite ? 'has_website' : 'no_website';
+  l.value = parseFloat(document.getElementById('lm-value').value)||l.dealValueEstimate||0;
+  l.analysisNotes = document.getElementById('lm-analysis').value;
   l.notes = document.getElementById('lm-notes').value;
   save(); closeLeadModal(); renderLeadsTable(); updateBadges();
   toast('Lead updated!');
@@ -1559,6 +1733,7 @@ function sleep(ms) { return new Promise(r=>setTimeout(r,ms)); }
 //  INIT
 // ══════════════════════════════════════════════════════════
 load();
+leads = leads.map(normalizeLeadIntelligence);
 if(cfg.ejsPub) emailjs.init(cfg.ejsPub);
 loadSetupFields();
 updateBadges();
